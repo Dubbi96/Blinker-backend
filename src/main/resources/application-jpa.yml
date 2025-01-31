@@ -1,0 +1,80 @@
+spring:
+  jpa:
+    open-in-view: false
+    properties:
+      hibernate:
+        connection:
+          provider_disables_autocommit: true
+      hibernate.default_batch_fetch_size: 1000
+      hibernate.batch_fetch_style: padded
+      hibernate.jdbc.batch_size: 500
+      hibernate.order_inserts: true
+      hibernate.order_updates: true
+  data:
+    web:
+      pageable:
+        max-page-size: 1000000
+---
+spring:
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+        use_sql_comments: false
+        boot:
+          allow_jdbc_metadata_access: true
+    generate-ddl: true
+  config:
+    activate:
+      on-profile: local
+---
+spring:
+  jpa:
+    show-sql: false
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+        use_sql_comments: false
+        boot:
+          allow_jdbc_metadata_access: true
+    generate-ddl: true
+  config:
+    activate:
+      on-profile: dev
+---
+spring:
+  jpa:
+    show-sql: false
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        format_sql: true
+        use_sql_comments: false
+    generate-ddl: false
+  config:
+    activate:
+      on-profile: prod
+---
+spring:
+  jpa:
+    show-sql: false
+    hibernate:
+      ddl-auto: create-drop
+    generate-ddl: false
+    database: h2
+    properties:
+      hibernate:
+        show_sql: false
+        dialect: org.hibernate.dialect.PostgreSQL94Dialect
+        temp:
+          use_jdbc_metadata_defaults: false
+    database-platform: org.hibernate.dialect.H2Dialect
+  config:
+    activate:
+      on-profile: test

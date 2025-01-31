@@ -1,0 +1,50 @@
+spring:
+  profiles:
+    include:  jpa, datasource
+  main:
+    allow-bean-definition-overriding: true
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
+  data:
+    redis:
+      repositories:
+        enabled: false
+  jackson:
+    time-zone: Asia/Seoul
+  jwt:
+    secret-key: 697zRu8XSLLiiG-lXyCki76NiMv2peAN3ceW6Y5ILT0rHzsO3716jnEvYAegxDlHOAvTRP4pXI9B_aEPnkvsbw
+  servlet:
+    multipart:
+      maxFileSize: 100GB
+      maxRequestSize: 100GB
+
+thingplug:
+  base:
+    url: http://thingplugpf.sktiot.com:9000
+  app:
+    eui: 0250791000001021
+  headers:
+    x-m2m-origin: ThingPlug
+    x-m2m-ri: 123456789
+    uKey: YVlMR2V6cEpiVkV1VVMyWlFuN3F5YjAwSGVidGxSdzk2eWVWNU9GQnRReW50V3R2QWIxajgyakVYc3hlTTErcQ==
+
+
+server:
+  tomcat:
+    threads:
+      max: 300
+springdoc:
+  default-consumes-media-type: application/json;charset=UTF-8
+  api-docs:
+    enabled: true
+    path: '/v3/api-docs'
+  swagger-ui:
+    enabled: true
+    path: '/swagger-ui.html'
+    config-url: '/v3/api-docs/swagger-config'
+    url: '/v3/api-docs'
+    tags-sorter: alpha
+    operations-sorter: alpha
+  cache:
+    disabled: true
