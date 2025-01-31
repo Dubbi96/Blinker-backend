@@ -1,0 +1,50 @@
+spring:
+  datasource:
+    hikari:
+      leak-detection-threshold: 10000
+      connection-timeout: 15000
+      max-lifetime: 58000
+      idle-timeout: 0
+      transaction-isolation: TRANSACTION_READ_COMMITTED
+      pool-name: hikari-rw-pool
+      data-source-properties:
+        cachePrepStmts: true
+        prepStmtCacheSize: 250
+        prepStmtCacheSqlLimit: 2048
+        useServerPrepStmts: true
+        useLocalSessionState: true
+        rewriteBatchedStatements: true
+        cacheResultSetMetadata: true
+        cacheServerConfiguration: true
+        elideSetAutoCommits: true
+        maintainTimeStats: false
+      auto-commit: false
+---
+spring:
+  config:
+    activate:
+      on-profile: prod, dev, local
+  datasource:
+    hikari:
+      username: postgres
+      password: G^/?|Fy;5S->om+5
+      jdbc-url: jdbc:postgresql://google/blinker
+      data-source-properties:
+        cloudSqlInstance: blinker-db:asia-northeast3:blinker-atom
+        socketFactory: com.google.cloud.sql.postgres.SocketFactory
+        user: postgres
+        password: G^/?|Fy;5S->om+5
+    url: jdbc:postgresql://google/blinker?cloudSqlInstance=blinker-db:asia-northeast3:blinker-db&socketFactory=com.google.cloud.sql.postgres.SocketFactory
+---
+spring:
+  datasource:
+    url: jdbc:h2:mem:test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;CASE_INSENSITIVE_IDENTIFIERS=TRUE;DATABASE_TO_UPPER=FALSE;NON_KEYWORDS=year
+    hikari:
+      username: sa
+      password:
+      maximum-pool-size: 32
+      minimum-idle: 5
+      driver-class-name: org.h2.Driver
+  config:
+    activate:
+      on-profile: test
