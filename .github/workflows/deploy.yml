@@ -1,0 +1,38 @@
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: 1️⃣ Checkout Repository
+      uses: actions/checkout@v3
+
+    - name: 2️⃣ Authenticate with GCP
+      uses: google-github-actions/auth@v1
+      with:
+        credentials_json: "${{ secrets.GCP_SA_KEY }}"
+
+    - name: 3️⃣ Configure Docker
+      run: gcloud auth configure-docker asia-northeast3-docker.pkg.dev
+
+    - name: 4️⃣ Build Docker Image
+      run: docker build -t asia-northeast3-docker.pkg.dev/blinker-backend/blinker-repo/blinker-backend:latest .
+
+    - name: 5️⃣ Push Docker Image to Artifact Registry
+      run: docker push asia-northeast3-docker.pkg.dev/blinker-backend/blinker-repo/blinker-backend:latest
+
+    - name: 6️⃣ Deploy to Cloud Run
+      run: |
+        gcloud run deploy blinker-backend \
+          --image=asia-northeast3-docker.pkg.dev/blinker-backend/blinker-repo/blinker-backend:latest \
+          --platform=managed \
+          --region=asia-northeast3 \
+          --allow-unauthenticated \
+          --set-env-vars "SSL_KEYSTORE_PATH=/app/config/client-keystore.p12" \
+          --set-env-vars "SSL_KEYSTORE_PASSWORD=certificate-keystore-password-123"

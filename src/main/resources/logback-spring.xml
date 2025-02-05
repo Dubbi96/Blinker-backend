@@ -1,19 +1,18 @@
-<configuration >
-    <!--
+<configuration>
 
-    local = info level -> console
-
-    dev = error level -> slack
-
-    prod = error level -> slack
-
-    ( if need to make custom log , use warn level )
-
-    -->
-
-    <!-- Log Configuration-->
     <property name="WEBHOOK_URL" value="https://hooks.slack.com/services/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"/>
     <property name="LOG_PATTERN" value="%level %d{yy-MM-dd HH:mm:ss} , [%logger{0}:%line] - %msg%n"/>
+
+    <!-- Slack Webhook Appender 추가 -->
+    <appender name="SLACK" class="com.github.maricn.logback.SlackAppender">
+        <webhookUrl>${WEBHOOK_URL}</webhookUrl>
+        <iconEmoji>🚨</iconEmoji> <!-- Slack 메시지에 표시될 이모지 -->
+        <username>LogBot</username> <!-- Slack에 표시될 이름 -->
+        <channel>#server-logs</channel> <!-- 로그를 보낼 채널 -->
+        <layout class="ch.qos.logback.classic.PatternLayout">
+            <pattern>${LOG_PATTERN}</pattern>
+        </layout>
+    </appender>
 
     <springProfile name="local">
         <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
@@ -22,41 +21,40 @@
                 <pattern>${LOG_PATTERN}</pattern>
             </encoder>
         </appender>
-        <root level="Info">
+        <root level="INFO">
             <appender-ref ref="CONSOLE"/>
         </root>
-
     </springProfile>
 
     <springProfile name="dev">
         <appender name="CLOUD" class="com.google.cloud.logging.logback.LoggingAppender">
-            <!-- Optional : filter logs at or above a level -->
             <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
                 <level>INFO</level>
             </filter>
             <redirectToStdout>true</redirectToStdout>
-            <resourceType>cloud_run_revision</resourceType> <!-- Optional : default java.log -->
-            <flushLevel>WARN</flushLevel> <!-- Optional : default ERROR -->
+            <resourceType>cloud_run_revision</resourceType>
+            <flushLevel>WARN</flushLevel>
         </appender>
 
-        <root level="Info">
-            <appender-ref ref="CLOUD" />
+        <root level="INFO">
+            <appender-ref ref="CLOUD"/>
+            <appender-ref ref="SLACK"/> <!-- Slack으로 로그 전송 -->
         </root>
     </springProfile>
 
     <springProfile name="prod">
         <appender name="CLOUD" class="com.google.cloud.logging.logback.LoggingAppender">
-            <!-- Optional : filter logs at or above a level -->
             <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
                 <level>WARN</level>
             </filter>
             <redirectToStdout>true</redirectToStdout>
-            <resourceType>cloud_run_revision</resourceType> <!-- Optional : default java.log -->
-            <flushLevel>WARN</flushLevel> <!-- Optional : default ERROR -->
+            <resourceType>cloud_run_revision</resourceType>
+            <flushLevel>WARN</flushLevel>
         </appender>
 
         <root level="WARN">
-            <appender-ref ref="CLOUD" />
+            <appender-ref ref="CLOUD"/>
+            <appender-ref ref="SLACK"/> <!-- Slack으로 로그 전송 -->
         </root>
     </springProfile>
 
