@@ -158,6 +158,11 @@
             <classifier>jakarta</classifier>
         </dependency>
         <dependency>
+            <groupId>com.github.maricn</groupId>
+            <artifactId>logback-slack-appender</artifactId>
+            <version>1.6.1</version>
+        </dependency>
+        <dependency>
             <groupId>com.querydsl</groupId>
             <artifactId>querydsl-apt</artifactId>
             <version>5.0.0</version>

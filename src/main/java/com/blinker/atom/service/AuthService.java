@@ -32,7 +32,7 @@ public class AuthService {
     public SignInResponseDto login(SignInRequestDto accountRequestDto) {
         AppUser appUser = (AppUser) appUserRepository.findByUserId(accountRequestDto.getUsername())
                 .orElseThrow(() -> new CustomException(ErrorValue.ACCOUNT_NOT_FOUND.getMessage()));
-        if (!passwordEncoder.matches(accountRequestDto.getPassword(), appUser.getPassword())) throw new CustomException("올바르지 않은 아이디 및 비밀번호입니다.");
+        if (!passwordEncoder.matches(accountRequestDto.getPassword() + appUser.getSalt(), appUser.getPassword())) throw new CustomException("올바르지 않은 아이디 및 비밀번호입니다.");
         return new SignInResponseDto(appUser, jwtProvider.createAccessToken(appUser.getAppUserId()));
     }
 
@@ -48,6 +48,7 @@ public class AuthService {
 
         AppUser newUser = AppUser.builder()
                 .userId(authRequestDto.getUsername())
+                .username(authRequestDto.getUsername())
                 .email(null) // email 받으라 하면 추가
                 .password(encodedPassword)
                 .salt(salt)
