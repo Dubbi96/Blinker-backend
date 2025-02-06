@@ -10,7 +10,7 @@ WORKDIR /app
 
 # JAR 파일 및 인증서 복사
 COPY --from=builder /app/target/Blinker-1.0.0.jar /app/app.jar
-COPY key/client-keystore.p12 /app/config/client-keystore.p12
+COPY ./src/main/resources/key/client-keystore.p12 /app/config/client-keystore.p12
 
 # 실행 권한 부여
 RUN chmod 600 /app/config/client-keystore.p12
