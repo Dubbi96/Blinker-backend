@@ -14,8 +14,7 @@ COPY --from=stage1 /opt/app/target/Blinker-1.0.0.jar /opt/app/Blinker-1.0.0.jar
 
 # 환경 변수 설정
 ENV GOOGLE_APPLICATION_CREDENTIALS=/opt/app/key/blinker-backend-key.json
-ENV PORT=8080
 
 # 컨테이너 실행 시 JAR 실행
 EXPOSE 8080
-CMD ["sh", "-c", "java -jar /opt/app/Blinker-1.0.0.jar --server.port=${PORT}"]
+CMD ["java", "-jar", "/opt/app/Blinker-1.0.0.jar"]
