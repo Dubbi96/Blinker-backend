@@ -34,5 +34,11 @@ jobs:
           --platform=managed \
           --region=asia-northeast3 \
           --allow-unauthenticated \
+          --add-cloudsql-instances=blinker-db:asia-northeast3:blinker-atom \
           --set-env-vars "SSL_KEYSTORE_PATH=/app/config/client-keystore.p12" \
-          --set-env-vars "SSL_KEYSTORE_PASSWORD=certificate-keystore-password-123"
+          --set-env-vars "SSL_KEYSTORE_PASSWORD=certificate-keystore-password-123" \
+          --set-env-vars "SPRING_DATASOURCE_URL=jdbc:postgresql://127.0.0.1:5432/blinker" \
+          --set-env-vars "SPRING_DATASOURCE_USERNAME=postgres" \
+          --set-env-vars "SPRING_DATASOURCE_PASSWORD=G^/?|Fy;5S->om+5" \
+          --set-env-vars "CLOUD_SQL_INSTANCE=blinker-db:asia-northeast3:blinker-atom" \
+          --set-env-vars "GOOGLE_APPLICATION_CREDENTIALS=/app/service-account-key.json"
