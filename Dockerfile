@@ -1,24 +1,27 @@
-# 베이스 이미지 설정
-FROM openjdk:17-jdk
+# 1단계: 빌드 단계 (Maven으로 JAR 빌드)
+FROM eclipse-temurin:17-jdk AS builder
+WORKDIR /app
+COPY . .
+RUN ./mvnw clean package -DskipTests
 
-# Google Cloud SDK 설치 (필요 시)
+# 2단계: 런타임 환경
+FROM eclipse-temurin:17-jdk AS runtime
+WORKDIR /app
+
+# Cloud Storage에서 SSL 인증서 다운로드 (빌드 단계에서 수행)
 RUN apt-get update && apt-get install -y curl unzip && \
     curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-460.0.0-linux-x86_64.tar.gz && \
     tar -xvf google-cloud-cli-460.0.0-linux-x86_64.tar.gz && \
     ./google-cloud-sdk/install.sh --quiet && \
-    ./google-cloud-sdk/bin/gcloud components install gsutil --quiet
+    ./google-cloud-sdk/bin/gcloud components install gsutil --quiet && \
+    ./google-cloud-sdk/bin/gcloud storage cp gs://blinker-backend-ssl/client-keystore.p12 /app/config/client-keystore.p12
 
-# 애플리케이션 디렉터리 생성
-WORKDIR /app
+# JAR 파일 및 실행 스크립트 복사
+COPY --from=builder /app/target/Blinker-1.0.0.jar /app/app.jar
+COPY startup.sh /app/startup.sh
+RUN chmod +x /app/startup.sh
 
-# Cloud Storage에서 SSL 인증서 다운로드 (빌드 타임에 실행)
-RUN ./google-cloud-sdk/bin/gcloud storage cp gs://blinker-backend-ssl/client-keystore.p12 /app/config/client-keystore.p12
+EXPOSE 8080
 
-# JAR 파일 복사
-COPY build/libs/blinker-backend.jar /app/app.jar
-
-# 실행 권한 부여
-RUN chmod +x /app/app.jar
-
-# 컨테이너 실행 명령
-CMD ["java", "-Djavax.net.ssl.keyStore=/app/config/client-keystore.p12", "-Djavax.net.ssl.keyStorePassword=certificate-keystore-password-123", "-jar", "/app/app.jar"]
+# 애플리케이션 실행 (startup.sh 실행)
+CMD ["/bin/bash", "/app/startup.sh"]
