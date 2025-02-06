@@ -21,6 +21,10 @@ spring:
       auto-commit: false
 ---
 spring:
+  ssl:
+    key-store: /app/config/client-keystore.p12
+    key-store-password: certificate-keystore-password-123
+    key-store-type: PKCS12
   config:
     activate:
       on-profile: prod, dev, local
