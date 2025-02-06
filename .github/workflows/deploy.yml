@@ -18,6 +18,14 @@ jobs:
       with:
         credentials_json: "${{ secrets.GCP_SA_KEY }}"
 
+    - name: 3️⃣ Explicitly Authenticate gsutil
+      run: gcloud auth activate-service-account --key-file=$GOOGLE_APPLICATION_CREDENTIALS
+
+    - name: 4️⃣ Convert SSL Keystore & Service Account Key to Base64
+      run: |
+            gsutil cat gs://blinker-backend-ssl/client-keystore.p12 | base64 > keystore.b64
+            gsutil cat gs://blinker-backend-ssl/blinker-backend-key.json | base64 > service-account-key.b64
+
     - name: 3️⃣ Configure Docker
       run: gcloud auth configure-docker asia-northeast3-docker.pkg.dev
 
