@@ -19,28 +19,23 @@ spring:
         elideSetAutoCommits: true
         maintainTimeStats: false
       auto-commit: false
+
 ---
 spring:
-  ssl:
-    key-store: /app/config/client-keystore.p12
-    key-store-password: certificate-keystore-password-123
-    key-store-type: PKCS12
   config:
     activate:
       on-profile: dev, local
   datasource:
     hikari:
-      username: postgres
-      password: G^/?|Fy;5S->om+5
-      jdbc-url: jdbc:postgresql://google/blinker
-      data-source-properties:
-        cloudSqlInstance: blinker-db:asia-northeast3:blinker-atom
-        socketFactory: com.google.cloud.sql.postgres.SocketFactory
-        user: postgres
-        password: G^/?|Fy;5S->om+5
-    url: jdbc:postgresql://google/blinker?cloudSqlInstance=blinker-db:asia-northeast3:blinker-db&socketFactory=com.google.cloud.sql.postgres.SocketFactory
+      username: blinker_user
+      password: "{62fN9<TefKgbHd0"
+      jdbc-url: jdbc:postgresql://34.22.85.112:5432/blinker?ssl=true&sslmode=verify-ca&sslrootcert=/app/config/server-ca-final.pem
+
 ---
 spring:
+  config:
+    activate:
+      on-profile: test
   datasource:
     url: jdbc:h2:mem:test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;CASE_INSENSITIVE_IDENTIFIERS=TRUE;DATABASE_TO_UPPER=FALSE;NON_KEYWORDS=year
     hikari:
@@ -49,19 +44,17 @@ spring:
       maximum-pool-size: 32
       minimum-idle: 5
       driver-class-name: org.h2.Driver
-  config:
-    activate:
-      on-profile: test
+
 ---
 spring:
   config:
     activate:
       on-profile: prod
   datasource:
-    url: jdbc:postgresql://127.0.0.1:5432/blinker
     hikari:
-      username: postgres
-      password: G^/?|Fy;5S->om+5
+      username: blinker_user
+      password: "{62fN9<TefKgbHd0"
+      jdbc-url: jdbc:postgresql://34.22.85.112:5432/blinker?ssl=true&sslmode=verify-ca&sslrootcert=/app/config/server-ca-final.pem
       maximum-pool-size: 10
       minimum-idle: 2
       idle-timeout: 30000
