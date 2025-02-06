@@ -37,14 +37,14 @@ public class ThingPlugService {
 
     public ParsedSensorLogDto getLatestContent(String remoteCseId) {
         // Step 1: Fetch Content Instance list
-        String listUrl = String.format("%s/%s/v1_0/remoteCSE-%s/container-LoRa?fu=1&ty=4", baseUrl, appEui, remoteCseId);
+        String listUrl = String.format("%s/%s/v1_0/remoteCSE-%s/container-LoRa/latest", baseUrl, appEui, remoteCseId);
         log.info("Fetching Content Instance list from URL: {}", listUrl);
 
         try {
-            String listResponse = HttpClientUtil.get(listUrl, origin, uKey, requestId);
-            log.debug("Content Instance List Response: {}", listResponse);
+            String latestInstanceResponse = HttpClientUtil.get(listUrl, origin, uKey, requestId);
+            log.debug("Content Instance List Response: {}", latestInstanceResponse);
 
-            // Step 2: Extract the most recent Content Instance URI
+            /*// Step 2: Extract the most recent Content Instance URI
             String latestInstanceUri = extractLatestContentInstanceUri(listResponse);
             if (latestInstanceUri == null) {
                 log.error("No content instances found for remoteCSE ID: {}", remoteCseId);
@@ -59,11 +59,11 @@ public class ThingPlugService {
 
             String instanceResponse = HttpClientUtil.get(instanceUrl, origin, uKey, requestId);
             log.debug("Latest Content Instance Response: {}", instanceResponse);
-
+            */
             // Step 4: Extract and parse the <con> tag content
-            String conData = extractContent(instanceResponse);
+            String conData = extractContent(latestInstanceResponse);
             if (conData == null) {
-                log.error("No <con> data found in Content Instance: {}", latestInstanceUri);
+                log.error("No <con> data found in Content Instance: {}", latestInstanceResponse);
                 throw new IllegalArgumentException("No <con> data found.");
             }
 
