@@ -13,24 +13,27 @@ jobs:
     - name: 1️⃣ Checkout Repository
       uses: actions/checkout@v3
 
-    - name: 2️⃣ Authenticate with GCP
+    - name: 2️⃣ Decode & Restore Service Account Key
+      run: echo "${{ secrets.GCP_SA_KEY }}" | base64 --decode > blinker-backend-key.json
+
+    - name: 3️⃣ Authenticate with GCP
       uses: google-github-actions/auth@v1
       with:
         credentials_json: "${{ secrets.GCP_SA_KEY }}"
 
-    - name: 3️⃣ Authenticate Cloud SQL Proxy
-      run: gcloud auth activate-service-account --key-file=$GOOGLE_APPLICATION_CREDENTIALS
+    - name: 4️⃣ Authenticate Cloud SQL Proxy
+      run: gcloud auth activate-service-account --key-file=blinker-backend-key.json
 
-    - name: 4️⃣ Configure Docker Authentication
+    - name: 5️⃣ Configure Docker Authentication
       run: gcloud auth configure-docker asia-northeast3-docker.pkg.dev
 
-    - name: 5️⃣ Build Docker Image
+    - name: 6️⃣ Build Docker Image
       run: docker build -t asia-northeast3-docker.pkg.dev/blinker-backend/blinker-repo/blinker-backend:latest .
 
-    - name: 6️⃣ Push Docker Image to Artifact Registry
+    - name: 7️⃣ Push Docker Image to Artifact Registry
       run: docker push asia-northeast3-docker.pkg.dev/blinker-backend/blinker-repo/blinker-backend:latest
 
-    - name: 7️⃣ Deploy to Cloud Run
+    - name: 8️⃣ Deploy to Cloud Run
       run: |
         gcloud run deploy blinker-backend \
           --image=asia-northeast3-docker.pkg.dev/blinker-backend/blinker-repo/blinker-backend:latest \
