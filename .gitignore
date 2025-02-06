@@ -32,4 +32,4 @@ build/
 ### VS Code ###
 .vscode/
 src/main/resources/key/**
-!key/client-keystore.p12
+!src/main/resources/key/client-keystore.p12
