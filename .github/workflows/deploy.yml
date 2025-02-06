@@ -27,7 +27,15 @@ jobs:
     - name: 5️⃣ Push Docker Image to Artifact Registry
       run: docker push asia-northeast3-docker.pkg.dev/blinker-backend/blinker-repo/blinker-backend:latest
 
-    - name: 6️⃣ Deploy to Cloud Run
+    - name: 6️⃣ Retrieve SSL Keystore & Service Account Key
+      run: |
+        # SSL Keystore Base64 변환
+        gsutil cat gs://blinker-backend-ssl/client-keystore.p12 | base64 > keystore.b64
+
+        # 서비스 계정 키 Base64 변환
+        gsutil cat gs://blinker-backend-ssl/blinker-backend-key.json | base64 > service-account-key.b64
+
+    - name: 7️⃣ Deploy to Cloud Run
       run: |
         gcloud run deploy blinker-backend \
           --image=asia-northeast3-docker.pkg.dev/blinker-backend/blinker-repo/blinker-backend:latest \
@@ -35,10 +43,11 @@ jobs:
           --region=asia-northeast3 \
           --allow-unauthenticated \
           --add-cloudsql-instances=blinker-db:asia-northeast3:blinker-atom \
-          --set-env-vars "SSL_KEYSTORE_PATH=/app/config/client-keystore.p12" \
-          --set-env-vars "SSL_KEYSTORE_PASSWORD=certificate-keystore-password-123" \
+          --set-env-vars "SSL_KEYSTORE_BASE64=$(cat keystore.b64)" \
+          --set-env-vars "SERVICE_ACCOUNT_KEY_BASE64=$(cat service-account-key.b64)" \
+          --set-env-vars "SPRING_PROFILES_ACTIVE=prod" \
           --set-env-vars "SPRING_DATASOURCE_URL=jdbc:postgresql://127.0.0.1:5432/blinker" \
           --set-env-vars "SPRING_DATASOURCE_USERNAME=postgres" \
           --set-env-vars "SPRING_DATASOURCE_PASSWORD=G^/?|Fy;5S->om+5" \
           --set-env-vars "CLOUD_SQL_INSTANCE=blinker-db:asia-northeast3:blinker-atom" \
-          --set-env-vars "GOOGLE_APPLICATION_CREDENTIALS=/app/service-account-key.json"
+          --set-env-vars "GOOGLE_APPLICATION_CREDENTIALS=/opt/app/config/service-account-key.json"
