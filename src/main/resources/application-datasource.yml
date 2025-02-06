@@ -51,13 +51,17 @@ spring:
     activate:
       on-profile: prod
   datasource:
+    url: jdbc:postgresql://127.0.0.1:5432/blinker
     hikari:
-      username: blinker_user
-      password: "{62fN9<TefKgbHd0"
-      jdbc-url: jdbc:postgresql://34.22.85.112:5432/blinker?ssl=true&sslmode=verify-ca&sslrootcert=/app/config/server-ca-final.pem
+      username: postgres
+      password: G^/?|Fy;5S->om+5
       maximum-pool-size: 10
       minimum-idle: 2
       idle-timeout: 30000
       connection-timeout: 20000
       max-lifetime: 1800000
       pool-name: hikari-rw-pool
+      data-source-properties:
+        ssl: true
+        sslmode: verify-ca
+        sslrootcert: /opt/app/config/server-ca-final.pem
