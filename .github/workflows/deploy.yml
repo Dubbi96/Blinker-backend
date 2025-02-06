@@ -42,4 +42,5 @@ jobs:
           --allow-unauthenticated \
           --add-cloudsql-instances=blinker-db:asia-northeast3:blinker-atom-db \
           --set-env-vars "SPRING_PROFILES_ACTIVE=prod" \
-          --set-env-vars "GOOGLE_APPLICATION_CREDENTIALS=/opt/app/key/blinker-backend-key.json"
+          --set-env-vars "GOOGLE_APPLICATION_CREDENTIALS=/opt/app/key/blinker-backend-key.json" \
+          --set-env-vars "PORT=8080"
