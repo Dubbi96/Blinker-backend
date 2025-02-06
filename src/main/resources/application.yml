@@ -34,6 +34,7 @@ server:
   tomcat:
     threads:
       max: 300
+  port: 8080
 springdoc:
   default-consumes-media-type: application/json;charset=UTF-8
   api-docs:
