@@ -35,7 +35,7 @@ public class JwtProvider {
         Map<String, Object> claims = getClaims(key, appUserId);
 
         Date now = new Date();
-        Date expiryDate = Date.from(now.toInstant().plus(Duration.ofDays(14)));
+        Date expiryDate = Date.from(now.toInstant().plus(Duration.ofDays(1)));
 
         return Jwts.builder()
                 .setClaims(claims)

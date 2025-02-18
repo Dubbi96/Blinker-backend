@@ -18,8 +18,8 @@ public class HttpClientUtil {
         headers.set("X-M2M-Origin", origin);
         headers.set("X-M2M-RI", requestId);
         headers.set("uKey", uKey);
-        log.info("headers: {}", headers);
-        log.info("url: {}", url);
+        /*log.info("headers: {}", headers);
+        log.info("url: {}", url);*/
         HttpEntity<String> entity = new HttpEntity<>(headers);
         ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
 
@@ -35,15 +35,15 @@ public class HttpClientUtil {
         headers.set("X-M2M-RI", requestId);
         headers.set("uKey", uKey);
 
-        log.info("headers: {}", headers);
+        /*log.info("headers: {}", headers);
         log.info("url: {}", url);
-        log.info("body: {}", body);
+        log.info("body: {}", body);*/
 
         HttpEntity<String> entity = new HttpEntity<>(body, headers);
 
         ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
-        log.info("Response Status: {}", response.getStatusCode());
-        log.info("Response Body: {}", response.getBody());
+        /*log.info("Response Status: {}", response.getStatusCode());
+        log.info("Response Body: {}", response.getBody());*/
 
         return response.getBody();
     }

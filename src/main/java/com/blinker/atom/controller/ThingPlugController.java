@@ -1,8 +1,8 @@
 package com.blinker.atom.controller;
 
-import com.blinker.atom.dto.ContentInstanceRequestDto;
-import com.blinker.atom.dto.ParsedSensorLogDto;
-import com.blinker.atom.service.ThingPlugService;
+import com.blinker.atom.dto.thingplug.ContentInstanceRequestDto;
+import com.blinker.atom.dto.thingplug.ParsedSensorLogDto;
+import com.blinker.atom.service.thingplug.ThingPlugService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;

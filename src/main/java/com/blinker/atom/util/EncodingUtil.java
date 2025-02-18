@@ -1,6 +1,6 @@
 package com.blinker.atom.util;
 
-import com.blinker.atom.dto.ContentInstanceRequestDto;
+import com.blinker.atom.dto.thingplug.ContentInstanceRequestDto;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Map;

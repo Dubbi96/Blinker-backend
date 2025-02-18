@@ -1,6 +1,6 @@
 package com.blinker.atom.util;
 
-import com.blinker.atom.dto.ParsedSensorLogDto;
+import com.blinker.atom.dto.thingplug.ParsedSensorLogDto;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -149,18 +149,15 @@ public class ParsingUtil {
         return silentSettings;
     }
 
-    private static String parseFaultInformation(int faultInfo) {
-        StringBuilder sb = new StringBuilder();
-        if ((faultInfo & 1) == 1) sb.append("Front Cover Open, ");
-        if ((faultInfo & 2) == 2) sb.append("235.3MHz Receiver Fault, ");
-        if ((faultInfo & 4) == 4) sb.append("358.5MHz Receiver Fault, ");
-        if ((faultInfo & 8) == 8) sb.append("User Button Fault, ");
-        if ((faultInfo & 16) == 16) sb.append("Speaker Fault, ");
-        if ((faultInfo & 32) == 32) sb.append("Signal Light Residual Fault");
+    private static Map<String, Boolean> parseFaultInformation(int faultInfo) {
+        Map<String, Boolean> faultInformation = new LinkedHashMap<>();
+        if ((faultInfo & 1) == 1) faultInformation.put("Front Cover Open", true); else faultInformation.put("Front Cover Open", false);
+        if ((faultInfo & 2) == 2) faultInformation.put("235.3MHz Receiver Fault", true); else faultInformation.put("235.3MHz Receiver Fault", false);
+        if ((faultInfo & 4) == 4) faultInformation.put("358.5MHz Receiver Fault", true); else faultInformation.put("358.5MHz Receiver Fault", false);
+        if ((faultInfo & 8) == 8) faultInformation.put("User Button Fault", true); else faultInformation.put("User Button Fault", false);
+        if ((faultInfo & 16) == 16) faultInformation.put("Speaker Fault", true); else faultInformation.put("Speaker Fault", false);
+        if ((faultInfo & 32) == 32) faultInformation.put("Signal Light Residual Fault", true); else faultInformation.put("Signal Light Residual Fault", false);
 
-        if (!sb.isEmpty() && sb.charAt(sb.length() - 2) == ',') {
-            sb.delete(sb.length() - 2, sb.length());
-        }
-        return sb.toString();
+        return faultInformation;
     }
 }

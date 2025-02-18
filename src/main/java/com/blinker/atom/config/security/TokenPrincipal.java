@@ -1,6 +1,6 @@
 package com.blinker.atom.config.security;
 
-import com.blinker.atom.domain.AppUser;
+import com.blinker.atom.domain.appuser.AppUser;
 import lombok.Getter;
 
 import javax.security.auth.Subject;
