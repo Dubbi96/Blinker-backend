@@ -35,7 +35,6 @@
             <url>https://jitpack.io</url>
         </repository>
     </repositories>
-
     <dependencyManagement>
         <dependencies>
             <dependency>
@@ -83,6 +82,11 @@
             <artifactId>google-cloud-logging-logback</artifactId>
         </dependency>
         <dependency>
+            <groupId>com.github.napstr</groupId>
+            <artifactId>logback-discord-appender</artifactId>
+            <version>1.0.0</version>
+        </dependency>
+        <dependency>
             <groupId>com.google.auth</groupId>
             <artifactId>google-auth-library-oauth2-http</artifactId>
             <version>1.25.0</version>
@@ -96,11 +100,6 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-configuration-processor</artifactId>
             <optional>true</optional>
-        </dependency>
-        <dependency>
-            <groupId>com.github.napstr</groupId>
-            <artifactId>logback-discord-appender</artifactId>
-            <version>1.0.0</version>
         </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>
