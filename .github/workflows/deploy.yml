@@ -50,25 +50,20 @@ jobs:
       id: end_time
       run: echo "END_TIME=$(date +%s)" >> $GITHUB_ENV
 
-    - name: 빌드 성공 Slack 알림
+    - name: 빌드 성공 Discord 알림
       if: success()
-      run: |
-        BUILD_TIME=$((END_TIME - START_TIME))
-        curl -X POST -H 'Content-type: application/json' \
-        --data '{
-          "text": "✅ *배포 성공!* ",
-          "attachments": [
-            {
-              "color": "#36a64f",
-              "fields": [
-                { "title": "Status", "value": "성공 ✅", "short": true },
-                { "title": "Branch", "value": "'$(git rev-parse --abbrev-ref HEAD)'", "short": true },
-                { "title": "Build Time", "value": "'"$BUILD_TIME"초'", "short": true },
-                { "title": "Committer", "value": "'"$(git config user.name)"'", "short": true }
-              ]
-            }
-          ]
-        }' "${{ secrets.SLACK_WEBHOOK_URL }}"
+      uses: tsickert/discord-webhook@v6.0.0
+      with:
+        webhook-url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        embed-title: "🎉 **배포 성공: `${{ github.ref_name }}` 브랜치!**"
+        embed-url: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        embed-description: |
+          ✅ **배포 환경:** `${{ inputs.env }}`
+          🔹 **대상 브랜치:** `${{ github.ref_name }}`
+          🏷 **도커 이미지 태그:** `${{ inputs.imageTag }}`
+          🚀 **배포 전용 모드:** `${{ inputs.deployOnly }}`
+          ⏳ **소요 시간:** `${{ env.END_TIME }} - ${{env.START_TIME }}초`
+        embed-color: "3066993"  # 초록색 성공 컬러
 
     - name: 빌드 실패 Slack 알림
       if: failure()

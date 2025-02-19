@@ -29,7 +29,6 @@ thingplug:
     x-m2m-ri: 123456789
     uKey: YVlMR2V6cEpiVkV1VVMyWlFuN3F5YjAwSGVidGxSdzk2eWVWNU9GQnRReW50V3R2QWIxajgyakVYc3hlTTErcQ==
 
-
 server:
   tomcat:
     threads:
@@ -48,3 +47,8 @@ springdoc:
     operations-sorter: alpha
   cache:
     disabled: true
+
+logging:
+  discord:
+    webhook-url: https://discord.com/api/webhooks/1341807531189866606/_4P6bPacVts_kXTnNW2M1wMngmkgRGWBguZHQQ1R8RllJS9zcCtGaXiav2fIvhPbyju-
+  config: classpath:logback.xml

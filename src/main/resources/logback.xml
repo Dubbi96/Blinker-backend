@@ -1,0 +1,134 @@
+<configuration>
+  <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+  <springProfile name="local">
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+    <root level="INFO">
+      <appender-ref ref="CONSOLE"/>
+    </root>
+  </springProfile>
+  <springProfile name="dev">
+    <property resource="application.yml"/>
+    <springProperty name="DISCORD_WEBHOOK_URL" source="logging.discord.webhook-url"/>
+    <appender name="DISCORD" class="com.github.napstr.logback.DiscordAppender">
+      <webhookUri>${DISCORD_WEBHOOK_URL}</webhookUri>
+      <layout class="ch.qos.logback.classic.PatternLayout">
+        <pattern>
+          ```yaml
+time: [%d{HH:mm:ss}]
+env : dev
+level: [%level]
+thread: [%thread]
+logger: %logger{36}
+message: %msg ```
+**전체 메시지 : **
+```%ex{full}```
+        </pattern>
+      </layout>
+      <username>강 종 원</username>
+      <tts>false</tts>
+    </appender>
+
+    <appender name="Console" class="ch.qos.logback.core.ConsoleAppender">
+      <encoder>
+        <Pattern>${CONSOLE_LOG_PATTERN}</Pattern>
+        <charset>utf8</charset>
+      </encoder>
+    </appender>
+
+    <appender name="ASYNC_DISCORD" class="ch.qos.logback.classic.AsyncAppender">
+      <appender-ref ref="DISCORD" />
+      <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+        <level>ERROR</level>
+      </filter>
+    </appender>
+
+    <root level="INFO">
+      <appender-ref ref="ASYNC_DISCORD"/>
+      <appender-ref ref="Console"/>
+    </root>
+  </springProfile>
+  <springProfile name="prod">
+    <property resource="application.yml"/>
+    <springProperty name="DISCORD_WEBHOOK_URL" source="logging.discord.webhook-url"/>
+    <appender name="DISCORD" class="com.github.napstr.logback.DiscordAppender">
+      <webhookUri>${DISCORD_WEBHOOK_URL}</webhookUri>
+      <layout class="ch.qos.logback.classic.PatternLayout">
+        <pattern>
+          ```yaml
+time: [%d{HH:mm:ss}]
+env : prod
+level: [%level]
+thread: [%thread]
+logger: %logger{36}
+message: %msg ```
+**전체 메시지 : **
+```%ex{full}```
+        </pattern>
+      </layout>
+      <username>강 종 원</username>
+      <tts>false</tts>
+    </appender>
+
+    <appender name="Console" class="ch.qos.logback.core.ConsoleAppender">
+      <encoder>
+        <Pattern>${CONSOLE_LOG_PATTERN}</Pattern>
+        <charset>utf8</charset>
+      </encoder>
+    </appender>
+
+    <appender name="ASYNC_DISCORD" class="ch.qos.logback.classic.AsyncAppender">
+      <appender-ref ref="DISCORD" />
+      <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+        <level>ERROR</level>
+      </filter>
+    </appender>
+
+    <root level="INFO">
+      <appender-ref ref="ASYNC_DISCORD"/>
+      <appender-ref ref="Console"/>
+    </root>
+  </springProfile>
+
+  <springProfile name="local">
+    <property resource="application.yml"/>
+    <springProperty name="DISCORD_WEBHOOK_URL" source="logging.discord.webhook-url"/>
+    <appender name="DISCORD" class="com.github.napstr.logback.DiscordAppender">
+      <webhookUri>${DISCORD_WEBHOOK_URL}</webhookUri>
+      <layout class="ch.qos.logback.classic.PatternLayout">
+        <pattern>
+          ```yaml
+time: [%d{HH:mm:ss}]
+env : local
+level: [%level]
+thread: [%thread]
+logger: %logger{36}
+message: %msg ```
+**전체 메시지 : **
+```%ex{full}```
+        </pattern>
+      </layout>
+      <username>강 종 원</username>
+      <tts>false</tts>
+    </appender>
+
+    <appender name="Console" class="ch.qos.logback.core.ConsoleAppender">
+      <encoder>
+        <Pattern>${CONSOLE_LOG_PATTERN}</Pattern>
+        <charset>utf8</charset>
+      </encoder>
+    </appender>
+
+    <appender name="ASYNC_DISCORD" class="ch.qos.logback.classic.AsyncAppender">
+      <appender-ref ref="DISCORD" />
+      <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+        <level>ERROR</level>
+      </filter>
+    </appender>
+
+    <root level="INFO">
+      <appender-ref ref="ASYNC_DISCORD"/>
+      <appender-ref ref="Console"/>
+    </root>
+  </springProfile>
+</configuration>
