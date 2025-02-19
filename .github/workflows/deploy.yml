@@ -8,33 +8,34 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
 
     - name: Note Build Start Time
       id : start_time
       run : echo "START_TIME=$(date +%s)" >> $GITHUB_ENV
-      
-    - name: Checkout Repository
+
+    - name: 1️⃣ Checkout Repository
       uses: actions/checkout@v3
 
-    - name: Decode & Restore Service Account Key
+    - name: 2️⃣ Decode & Restore Service Account Key
       run: echo "${{ secrets.GCP_SA_KEY }}" | base64 --decode > blinker-backend-key.json
 
-    - name: Authenticate with GCP
+    - name: 3️⃣ Authenticate with GCP
       uses: google-github-actions/auth@v1
       with:
         credentials_json: "${{ secrets.GCP_SA_KEY }}"
 
-    - name: Configure Docker Authentication
+    - name: 4️⃣ Configure Docker Authentication
       run: gcloud auth configure-docker asia-northeast3-docker.pkg.dev
 
-    - name: Build Docker Image
+    - name: 5️⃣ Build Docker Image
       run: docker build -t asia-northeast3-docker.pkg.dev/blinker-backend/blinker-repo/blinker-backend:latest .
 
-    - name: Push Docker Image to Artifact Registry
+    - name: 6️⃣ Push Docker Image to Artifact Registry
       run: docker push asia-northeast3-docker.pkg.dev/blinker-backend/blinker-repo/blinker-backend:latest
 
-    - name: Deploy to Cloud Run
+    - name: 7️⃣ Deploy to Cloud Run
       run: |
         gcloud run deploy blinker-backend \
           --image=asia-northeast3-docker.pkg.dev/blinker-backend/blinker-repo/blinker-backend:latest \
@@ -44,6 +45,10 @@ jobs:
           --add-cloudsql-instances=blinker-db:asia-northeast3:blinker-atom-db \
           --set-env-vars SPRING_PROFILES_ACTIVE=prod \
           --set-env-vars GOOGLE_APPLICATION_CREDENTIALS=/app/blinker-backend-key.json
+
+    - name: 종료 시간 기록
+      id: end_time
+      run: echo "END_TIME=$(date +%s)" >> $GITHUB_ENV
 
     - name : 배포 실패 시 종료 시간 기록
       if: failure()
@@ -65,10 +70,6 @@ jobs:
           𝒈 **액션 링크:** https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         embed-color: "16711680"
 
-  notification:
-    runs-on: ubuntu-latest
-    needs: deploy
-    steps:
     - name: 종료 시간 기록
       id: end_time
       run: echo "BUILD_TIME=$(( $(date +%s) - ${{ needs.set-up.outputs.start_time }} ))" >> $GITHUB_ENV
