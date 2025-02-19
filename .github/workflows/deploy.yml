@@ -30,6 +30,7 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
+    needs: set-up
     steps:
 
     - name: Build Docker Image
@@ -40,6 +41,7 @@ jobs:
 
   deploy:
     runs-on : ubuntu-latest
+    needs: build
     steps:
 
     - name: Deploy to Cloud Run
@@ -55,6 +57,7 @@ jobs:
 
   notification:
     runs-on : ubuntu-latest
+    needs: deploy
     steps:
 
     - name: 종료 시간 기록
