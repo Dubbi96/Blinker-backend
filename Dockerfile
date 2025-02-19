@@ -13,10 +13,10 @@ WORKDIR /app
 COPY --from=stage1 /opt/app/target/Blinker-1.0.0.jar /app/Blinker-1.0.0.jar
 
 # 서비스 계정 키 파일 복사
-COPY blinker-backend-key.json /app/blinker-backend-key.json
+#COPY blinker-backend-key.json /app/blinker-backend-key.json
 
 # 환경 변수 설정
-ENV GOOGLE_APPLICATION_CREDENTIALS=/app/blinker-backend-key.json
+#ENV GOOGLE_APPLICATION_CREDENTIALS=/app/blinker-backend-key.json
 ENV PORT=8080
 
 # Cloud Run에서 자동 할당된 포트 사용하도록 설정
