@@ -31,6 +31,9 @@ jobs:
     - name: 4️⃣ Configure Docker Authentication
       run: gcloud auth configure-docker asia-northeast3-docker.pkg.dev
 
+    - name: 5️⃣ Prepare Build Context
+      run: cp blinker-backend-key.json ./
+
     - name: 5️⃣ Build Docker Image
       run: docker build -t asia-northeast3-docker.pkg.dev/blinker-backend/blinker-repo/blinker-backend:latest .
 
