@@ -45,6 +45,12 @@ jobs:
           --set-env-vars SPRING_PROFILES_ACTIVE=prod \
           --set-env-vars GOOGLE_APPLICATION_CREDENTIALS=/app/blinker-backend-key.json
 
+    - name : 배포 실패 시 종료 시간 기록
+      if: failure()
+      run : |
+          echo "END_TIME=$(date +%s)" >> $GITHUB_ENV
+          echo "BUILD_TIME=$(( $(date +%s) - $START_TIME ))" >> $GITHUB_ENV
+
     - name: 빌드 실패 Discord 알림
       if: failure()
       uses: tsickert/discord-webhook@v6.0.0
@@ -55,7 +61,7 @@ jobs:
         embed-description: |
           𝑒 **배포 환경:** `prod`
           𝘣 **대상 브랜치:** `${{ github.ref_name }}`
-          𝑡 **소요 시간:** `$(( $(date +%s) - $START_TIME ))초`
+          𝑡 **소요 시간:** `${{ env.BUILD_TIME }}초`
           𝒈 **액션 링크:** https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         embed-color: "16711680"
 
@@ -65,7 +71,7 @@ jobs:
     steps:
     - name: 종료 시간 기록
       id: end_time
-      run: echo "BUILD_TIME=$(( $(date +%s) - $START_TIME ))" >> $GITHUB_ENV
+      run: echo "BUILD_TIME=$(( $(date +%s) - ${{ needs.set-up.outputs.start_time }} ))" >> $GITHUB_ENV
 
     - name: 빌드 성공 Discord 알림
       if: success()
