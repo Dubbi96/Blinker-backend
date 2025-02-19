@@ -26,8 +26,12 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -55,6 +59,7 @@ public class SensorLogSchedulerService {
     private String requestId;
 
     public static boolean IS_FETCH_SENSOR_LOG_RUNNING = false;
+    private final ExecutorService executorService = Executors.newFixedThreadPool(10);
 
     /**
      * 	1.	sensor_group 테이블의 모든 행을 조회.
@@ -125,6 +130,51 @@ public class SensorLogSchedulerService {
 
     @Transactional
     protected void saveSensorLogs(List<String> eventCodes, SensorGroup group) {
+        List<CompletableFuture<Void>> futures = eventCodes.stream()
+            .map(eventCode -> CompletableFuture.runAsync(() -> fetchAndSaveLog(eventCode, group), executorService))
+            .toList();
+
+        // 모든 요청이 완료될 때까지 대기
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+    }
+
+    private void fetchAndSaveLog(String eventCode, SensorGroup group) {
+        if (sensorLogRepository.findByEventCode(eventCode).isPresent()) {
+            log.info("이미 존재하는 이벤트 코드 (스킵): {}", eventCode);
+            return;
+        }
+
+        String contentInstanceUrl = String.format("%s/%s/v1_0/remoteCSE-%s/container-LoRa/contentInstance-%s",
+                baseUrl, appEui, group.getId(), eventCode);
+
+        try {
+            String contentInstanceResponse = HttpClientUtil.get(contentInstanceUrl, origin, uKey, requestId);
+            String jsonEventDetail = XmlUtil.convertXmlToJson(contentInstanceResponse);
+
+            SensorLog logEntry = SensorLog.builder()
+                    .sensorGroup(group)
+                    .eventCode(eventCode)
+                    .eventDetails(jsonEventDetail)
+                    .build();
+
+            sensorLogRepository.save(logEntry);
+            parseSensorLog(logEntry, group);
+            log.info("✅ SensorLog 저장 완료: {}", eventCode);
+        } catch (HttpClientErrorException e) {
+            log.error("HTTP Error during Content Instance processing. Status: {}, Error: {}",
+                        e.getStatusCode(), e.getResponseBodyAsString());
+            if (e.getStatusCode() == HttpStatus.BAD_REQUEST) {
+                throw new IllegalArgumentException("400 Bad Request: Check remoteCSE ID or request parameters.");
+            }
+            throw e;
+       } catch (JsonProcessingException e) {
+            log.error("Unexpected error during Content Instance processing", e);
+            throw new CustomException("Unexpected error during Content Instance processing");
+        }
+    }
+
+    /*@Transactional
+    protected void saveSensorLogs(List<String> eventCodes, SensorGroup group) {
         for (String eventCode : eventCodes) {
             // 이미 존재하는 eventCode인지 확인
             if (sensorLogRepository.findByEventCode(eventCode).isPresent()) {
@@ -159,7 +209,7 @@ public class SensorLogSchedulerService {
                 throw new CustomException("Unexpected error during Content Instance processing");
             }
         }
-    }
+    }*/
 
     @Transactional
     public void parseSensorLog(SensorLog sensorLog, SensorGroup group) throws JsonProcessingException {
