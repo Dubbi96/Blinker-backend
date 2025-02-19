@@ -6,36 +6,43 @@ on:
       - main
 
 jobs:
-  deploy:
+  set-up:
     runs-on: ubuntu-latest
-
     steps:
 
     - name: Note Build Start Time
       id : start_time
       run : echo "START_TIME=$(date +%s)" >> $GITHUB_ENV
       
-    - name: 1️⃣ Checkout Repository
+    - name: Checkout Repository
       uses: actions/checkout@v3
 
-    - name: 2️⃣ Decode & Restore Service Account Key
+    - name: Decode & Restore Service Account Key
       run: echo "${{ secrets.GCP_SA_KEY }}" | base64 --decode > blinker-backend-key.json
 
-    - name: 3️⃣ Authenticate with GCP
+    - name: Authenticate with GCP
       uses: google-github-actions/auth@v1
       with:
         credentials_json: "${{ secrets.GCP_SA_KEY }}"
 
-    - name: 4️⃣ Configure Docker Authentication
+    - name: Configure Docker Authentication
       run: gcloud auth configure-docker asia-northeast3-docker.pkg.dev
 
-    - name: 5️⃣ Build Docker Image
+  build:
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Build Docker Image
       run: docker build -t asia-northeast3-docker.pkg.dev/blinker-backend/blinker-repo/blinker-backend:latest .
 
-    - name: 6️⃣ Push Docker Image to Artifact Registry
+    - name: Push Docker Image to Artifact Registry
       run: docker push asia-northeast3-docker.pkg.dev/blinker-backend/blinker-repo/blinker-backend:latest
 
-    - name: 7️⃣ Deploy to Cloud Run
+  deploy:
+    runs-on : ubuntu-latest
+    steps:
+
+    - name: Deploy to Cloud Run
       run: |
         gcloud run deploy blinker-backend \
           --image=asia-northeast3-docker.pkg.dev/blinker-backend/blinker-repo/blinker-backend:latest \
@@ -45,6 +52,10 @@ jobs:
           --add-cloudsql-instances=blinker-db:asia-northeast3:blinker-atom-db \
           --set-env-vars SPRING_PROFILES_ACTIVE=prod \
           --set-env-vars GOOGLE_APPLICATION_CREDENTIALS=/app/blinker-backend-key.json
+
+  notification:
+    runs-on : ubuntu-latest
+    steps:
 
     - name: 종료 시간 기록
       id: end_time
@@ -61,7 +72,7 @@ jobs:
           𝑒 **배포 환경:** `prod`
           𝘣 **대상 브랜치:** `${{ github.ref_name }}`
           𝑡 **소요 시간:** `${{ env.BUILD_TIME }}초`
-          𝒈 **액션 링크:** "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          𝒈 **액션 링크:** https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         embed-color: "3066993"
 
     - name: 빌드 실패 Discord 알림
