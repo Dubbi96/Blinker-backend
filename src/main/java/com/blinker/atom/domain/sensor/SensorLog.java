@@ -7,11 +7,12 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.Type;
+import org.springframework.data.relational.core.mapping.Table;
 
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "sensor_log", uniqueConstraints = @UniqueConstraint(columnNames = {"sensor_group_id","event_code"}))
+@Table(name = "sensor_log")
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
