@@ -16,4 +16,8 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long> {
 
     @Query(value = "SELECT * FROM app_user WHERE :role = ANY(roles)", nativeQuery = true)
     List<AppUser> findByRolesContaining(@Param("role") String role);
+
+    void deleteAppUserById(Long id);
+
+    Optional<AppUser> findAppUserById(Long id);
 }

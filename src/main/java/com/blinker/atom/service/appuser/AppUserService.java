@@ -3,6 +3,7 @@ package com.blinker.atom.service.appuser;
 import com.blinker.atom.config.error.CustomException;
 import com.blinker.atom.config.error.ErrorValue;
 import com.blinker.atom.config.security.JwtProvider;
+import com.blinker.atom.config.security.LoginAppUser;
 import com.blinker.atom.domain.appuser.AppUser;
 import com.blinker.atom.domain.appuser.AppUserRepository;
 import com.blinker.atom.domain.appuser.Role;
@@ -27,7 +28,8 @@ public class AppUserService {
     public SignInResponseDto login(SignInRequestDto accountRequestDto) {
         AppUser appUser = (AppUser) appUserRepository.findByUserId(accountRequestDto.getUsername())
                 .orElseThrow(() -> new CustomException(ErrorValue.ACCOUNT_NOT_FOUND.getMessage()));
-        if (!passwordEncoder.matches(accountRequestDto.getPassword() + appUser.getSalt(), appUser.getPassword())) throw new CustomException("올바르지 않은 아이디 및 비밀번호입니다.");
+        if (!passwordEncoder.matches(accountRequestDto.getPassword() + appUser.getSalt(), appUser.getPassword()))
+            throw new CustomException("올바르지 않은 아이디 및 비밀번호입니다.");
         return new SignInResponseDto(appUser, jwtProvider.createAccessToken(appUser.getId()));
     }
 
@@ -47,7 +49,6 @@ public class AppUserService {
                 .password(encodedPassword)
                 .salt(salt)
                 .roles(Collections.singletonList(userRole))
-                .isActive(true)
                 .build();
 
         appUserRepository.save(newUser);
@@ -57,19 +58,44 @@ public class AppUserService {
     @Transactional(readOnly = true)
     public AppUserResponseDto getUserDetails(Long userId) {
         AppUser user = appUserRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("사용자가 존재하지 않습니다."));
-        AppUserResponseDto userResponse = new AppUserResponseDto();
-        userResponse.setUserId(user.getId());
-        userResponse.setUsername(user.getUserId());
-        userResponse.setRole(user.getRoles());
-        return userResponse;
+                .orElseThrow(() -> new CustomException(ErrorValue.ACCOUNT_NOT_FOUND.getMessage()));
+        return new AppUserResponseDto(user);
     }
 
     @Transactional(readOnly = true)
-    public List<AppUsersResponseDto> getUserList() {
+    public List<AppUserResponseDto> getUserList() {
         return appUserRepository.findAll()
                 .stream()
-                .map(AppUsersResponseDto::fromEntity)
-                .collect(Collectors.toList());
+                .sorted(Comparator.comparing((AppUser user) -> user.getRoles().contains(Role.ADMIN) ? 0 : 1) // ADMIN 우선 정렬
+                        .thenComparing(AppUser::getId)) // 같은 역할 내에서 appUserId 오름차순 정렬
+                .map(AppUserResponseDto::new)
+                .toList();
+    }
+
+    @Transactional
+    public void updateAppUserPassword(AppUser appUser, String newPassword) {
+        String salt = UUID.randomUUID().toString();
+        String encodedPassword = passwordEncoder.encode(newPassword + salt);
+        appUser.updatePassword(encodedPassword, salt);
+        appUserRepository.save(appUser);
+    }
+
+    @Transactional
+    public void deleteAppUserWithRoleOfUser(AppUser appUser, Long appUserId) {
+        AppUser pendingAppUser = appUserRepository.findAppUserById(appUserId).orElseThrow(() -> new CustomException(ErrorValue.ACCOUNT_NOT_FOUND.getMessage()));
+        if (pendingAppUser.getRoles().contains(Role.ADMIN) && !appUser.getId().equals(pendingAppUser.getId())) {
+            throw new CustomException("ADMIN 계정은 자신만 삭제할 수 있습니다. 삭제하고자 하는 계정의 권한 : " + pendingAppUser.getRoles().get(0));
+        }
+        appUserRepository.deleteAppUserById(pendingAppUser.getId());
+    }
+
+    @Transactional
+    public void updateAppUserStatus(AppUser appUser, Long appUserId, AppUserStatusUpdateRequestDto appUserStatusUpdateRequestDto) {
+        AppUser pendingAppUser = appUserRepository.findAppUserById(appUserId).orElseThrow(() -> new CustomException(ErrorValue.ACCOUNT_NOT_FOUND.getMessage()));
+        if (pendingAppUser.getRoles().contains(Role.ADMIN) && !appUser.getId().equals(pendingAppUser.getId())) {
+            throw new CustomException("ADMIN 계정은 자신만 수정할 수 있습니다. 수정하고자 하는 계정의 권한 : " + pendingAppUser.getRoles().get(0));
+        }
+        pendingAppUser.updateStatus(appUserStatusUpdateRequestDto.getUserId(), appUserStatusUpdateRequestDto.getUsername());
+        appUserRepository.save(pendingAppUser);
     }
 }

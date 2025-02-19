@@ -1,5 +1,7 @@
 package com.blinker.atom.service.scheduled;
 
+import com.blinker.atom.config.error.CustomException;
+import com.blinker.atom.config.error.ErrorValue;
 import com.blinker.atom.domain.appuser.*;
 import com.blinker.atom.domain.sensor.SensorGroup;
 import com.blinker.atom.domain.sensor.SensorGroupRepository;
@@ -20,29 +22,6 @@ public class AppUserSensorGroupService {
     private final AppUserRepository appUserRepository;
     private final SensorGroupRepository sensorGroupRepository;
     private final AppUserSensorGroupRepository appUserSensorGroupRepository;
-
-    @Async
-    @Transactional
-    public void assignUserToAllSensorGroupsAsync(Long userId) {
-        AppUser user = appUserRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
-
-        if (user.getRoles().contains(Role.ADMIN)) {
-            List<SensorGroup> sensorGroups = sensorGroupRepository.findAll();
-
-            for (SensorGroup group : sensorGroups) {
-                boolean alreadyAssigned = appUserSensorGroupRepository.existsByAppUserAndSensorGroup(user, group);
-                if (!alreadyAssigned) {
-                    AppUserSensorGroup newAssignment = AppUserSensorGroup.builder()
-                            .appUser(user)
-                            .sensorGroup(group)
-                            .build();
-                    appUserSensorGroupRepository.save(newAssignment);
-                }
-            }
-            log.info("ADMIN 계정 {}에게 모든 SensorGroup 자동 할당 완료", userId);
-        }
-    }
 
     @Async
     @Scheduled(fixedRate = 86400000)  // 1일 1회 실행 (1000ms * 60 * 60 * 24)
@@ -71,6 +50,18 @@ public class AppUserSensorGroupService {
                         .build();
                 appUserSensorGroupRepository.save(newAssignment);
             }
+        }
+    }
+
+    @Async
+    @Transactional
+    public void assignUserToAllSensorGroupsAsync(Long userId) {
+        AppUser user = appUserRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorValue.ACCOUNT_NOT_FOUND.getMessage()));
+
+        if (user.getRoles().contains(Role.ADMIN)) {
+            assignSensorGroups(user);
+            log.info("ADMIN 계정 {}에게 모든 SensorGroup 자동 할당 완료", userId);
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.blinker.atom.dto.appuser;
 
+import com.blinker.atom.domain.appuser.AppUser;
 import com.blinker.atom.domain.appuser.Role;
 import lombok.Data;
 
@@ -7,9 +8,13 @@ import java.util.List;
 
 @Data
 public class AppUserResponseDto {
-    private Long userId;
+    private Long appUserId;
+    private String userId;
     private String username;
-    private String email;
-    private List<Role> role;
-    private boolean isActive;
+
+    public AppUserResponseDto(AppUser user) {
+        this.appUserId = user.getId();
+        this.userId = user.getUserId();
+        this.username = user.getUsername();
+    }
 }

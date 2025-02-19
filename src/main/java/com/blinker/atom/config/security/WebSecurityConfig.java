@@ -84,9 +84,13 @@ public class WebSecurityConfig {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(requests ->
-                        requests.requestMatchers(
-                                "/auth/sign-in", "/auth/sign-up").permitAll()
+                        requests
                                 .requestMatchers(SWAGGER_URIS).permitAll()
+                                .requestMatchers("/auth/sign-in", "/auth/sign-up").permitAll()
+                                .requestMatchers(HttpMethod.GET, "sensor/groups").hasAnyAuthority("ADMIN", "USER")
+                                .requestMatchers(HttpMethod.GET, "sensor/groups/**", "auth/user/**", "auth/users").hasAuthority("ADMIN")
+                                .requestMatchers(HttpMethod.DELETE, "auth/user/**").hasAuthority("ADMIN")
+                                .requestMatchers(HttpMethod.PUT, "auth/user/**").hasAuthority("ADMIN")
                                 .requestMatchers(HttpMethod.POST, "/project/page/*/section", "/project/element", "/file/applicant/step/**", "/announcement/**", "/faq/**", "/qna/**").hasAuthority("ADMIN")
                                 .requestMatchers("/project/**", "/corporation/**", "/qna/**", "/faq/**", "/file/**").hasAnyAuthority("VIEWER", "ADMIN")
                         .anyRequest().authenticated()

@@ -3,9 +3,7 @@ package com.blinker.atom.dto.appuser;
 import lombok.Data;
 
 @Data
-public class SignUpRequestDto {
+public class AppUserStatusUpdateRequestDto {
     private String userId;
     private String username;
-    private String password;
-    private String role;
 }

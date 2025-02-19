@@ -50,10 +50,6 @@ public class AppUser {
     @Builder.Default
     private List<Role> roles = new ArrayList<>();
 
-    @Column(name = "is_active")
-    @Builder.Default
-    private Boolean isActive = true;
-
     @Column(name = "created_at", updatable = false, nullable = false)
     @Temporal(TemporalType.TIMESTAMP)
     private LocalDateTime createdAt;
@@ -78,5 +74,15 @@ public class AppUser {
             AppUserSensorGroupService service = ApplicationContextProvider.getBean(AppUserSensorGroupService.class);
             service.assignUserToAllSensorGroupsAsync(this.id);
         }
+    }
+
+    public void updatePassword(String encodedPassword, String salt) {
+        this.password = encodedPassword;
+        this.salt = salt;
+    }
+
+    public void updateStatus(String userId, String username){
+        this.userId = userId;
+        this.username = username;
     }
 }
