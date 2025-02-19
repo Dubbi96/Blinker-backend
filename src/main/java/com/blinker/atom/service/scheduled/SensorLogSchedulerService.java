@@ -82,9 +82,9 @@ public class SensorLogSchedulerService {
     @Scheduled(fixedRate = 100000, initialDelay = 20000)  // 1일 1회 실행 (1000ms * 60 * 60 * 24 86400000)
     @Transactional(readOnly = true)
     public void fetchAndSaveSensorLogs() {
-        if (!IS_FETCH_SENSOR_LOG_RUNNING) {
+        /*if (!IS_FETCH_SENSOR_LOG_RUNNING) {
             return;
-        }
+        }*/
         log.info("🔹 Sensor Log 스케줄러 실행 중...");
         // 모든 sensor_group 조회
         List<SensorGroup> sensorGroups = sensorGroupRepository.findAll();
