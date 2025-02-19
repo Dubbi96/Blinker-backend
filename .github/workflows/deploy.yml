@@ -12,10 +12,10 @@ jobs:
     steps:
 
     - name: Note Build Start Time
-    id : start_time
-    run : echo "START_TIME=$(date +%s)" >> $GITHUB_ENV
+      id : start_time
+      run : echo "START_TIME=$(date +%s)" >> $GITHUB_ENV
       
-      - name: 1️⃣ Checkout Repository
+    - name: 1️⃣ Checkout Repository
       uses: actions/checkout@v3
 
     - name: 2️⃣ Decode & Restore Service Account Key
