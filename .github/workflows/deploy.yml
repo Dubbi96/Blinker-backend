@@ -10,7 +10,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: 1️⃣ Checkout Repository
+
+    - name: Note Build Start Time
+    id : start_time
+    run : echo "START_TIME=$(date +%s)" >> $GITHUB_ENV
+      
+      - name: 1️⃣ Checkout Repository
       uses: actions/checkout@v3
 
     - name: 2️⃣ Decode & Restore Service Account Key
@@ -40,3 +45,49 @@ jobs:
           --add-cloudsql-instances=blinker-db:asia-northeast3:blinker-atom-db \
           --set-env-vars SPRING_PROFILES_ACTIVE=prod \
           --set-env-vars GOOGLE_APPLICATION_CREDENTIALS=/app/blinker-backend-key.json
+
+    - name: 종료 시간 기록
+      id: end_time
+      run: echo "END_TIME=$(date +%s)" >> $GITHUB_ENV
+
+    - name: 빌드 성공 Slack 알림
+      if: success()
+      run: |
+        BUILD_TIME=$((END_TIME - START_TIME))
+        curl -X POST -H 'Content-type: application/json' \
+        --data '{
+        "text": "✅ *배포 성공!* 🎉",
+        "attachments": [
+         {
+           "color": "#36a64f",
+           "fields": [
+             { "title": "Status", "value": "성공 ✅", "short": true },
+             { "title": "Branch", "value": "${{ github.ref }}", "short": true },
+             { "title": "Build Time", "value": "'"$BUILD_TIME"초'", "short": true },
+             { "title": "Committer", "value": "${{ github.actor }}", "short": true }
+           ]
+         }
+        ]
+        }' \
+        https://hooks.slack.com/services/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
+
+    - name: 빌드 실패 Slack 알림
+      if: failure()
+      run: |
+        BUILD_TIME=$((END_TIME - START_TIME))
+        curl -X POST -H 'Content-type: application/json' \
+        --data '{
+          "text": "❌ *배포 실패!* 🚨",
+          "attachments": [
+            {
+              "color": "#ff0000",
+              "fields": [
+                { "title": "Status", "value": "실패 ❌", "short": true },
+                { "title": "Branch", "value": "${{ github.ref }}", "short": true },
+                { "title": "Build Time", "value": "'"$BUILD_TIME"초'", "short": true },
+                { "title": "Committer", "value": "${{ github.actor }}", "short": true }
+              ]
+            }
+          ]
+        }' \
+        https://hooks.slack.com/services/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
