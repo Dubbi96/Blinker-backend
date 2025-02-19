@@ -18,8 +18,8 @@ jobs:
     - name: 1️⃣ Checkout Repository
       uses: actions/checkout@v3
 
-    - name: 2️⃣ Decode & Restore Service Account Key
-      run: echo "${{ secrets.GCP_SA_KEY }}" | base64 --decode > blinker-backend-key.json
+    #- name: 2️⃣ Decode & Restore Service Account Key
+    #  run: echo "${{ secrets.GCP_SA_KEY }}" | base64 --decode > blinker-backend-key.json
 
     - name: 3️⃣ Authenticate with GCP
       uses: google-github-actions/auth@v1
@@ -44,7 +44,7 @@ jobs:
           --allow-unauthenticated \
           --add-cloudsql-instances=blinker-db:asia-northeast3:blinker-atom-db \
           --set-env-vars SPRING_PROFILES_ACTIVE=prod \
-          --set-env-vars GOOGLE_APPLICATION_CREDENTIALS=/app/blinker-backend-key.json
+          
 
     - name: 종료 시간 기록
       id: end_time

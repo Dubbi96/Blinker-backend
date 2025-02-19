@@ -82,7 +82,6 @@ public class SensorLogSchedulerService {
     }*/
 
     @Scheduled(fixedRate = 86400000)  // 1일 1회 실행 (1000ms * 60 * 60 * 24)
-    @Transactional
     public void fetchAndSaveSensorLogs() {
         log.info("🔹 Sensor Log 스케줄러 실행 중...");
         // 모든 sensor_group 조회
