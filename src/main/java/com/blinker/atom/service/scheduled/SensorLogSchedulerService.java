@@ -54,6 +54,8 @@ public class SensorLogSchedulerService {
     @Value("${thingplug.headers.x-m2m-ri}")
     private String requestId;
 
+    public static boolean IS_FETCH_SENSOR_LOG_RUNNING = false;
+
     /**
      * 	1.	sensor_group 테이블의 모든 행을 조회.
      * 	2.	HttpClientUtil.get(url, origin, uKey, requestId)를 이용하여 contentInstance 리스트 조회.
@@ -72,8 +74,11 @@ public class SensorLogSchedulerService {
      *  5-1-9. cmd 71번의 경우도 GPS 좌표이나, 67번, 73로그 둘다 가지고 있으므로 로그 무시
      * 	6.	해당 작업을 Spring Scheduler + Async를 이용해 주기적으로 실행.
      * 	*/
-    @Scheduled(fixedRate = 86400000, initialDelay = 20000)  // 1일 1회 실행 (1000ms * 60 * 60 * 24)
+    @Scheduled(fixedRate = 100000, initialDelay = 20000)  // 1일 1회 실행 (1000ms * 60 * 60 * 24 86400000)
     public void fetchAndSaveSensorLogs() {
+        if (!IS_FETCH_SENSOR_LOG_RUNNING) {
+            return;
+        }
         log.info("🔹 Sensor Log 스케줄러 실행 중...");
         // 모든 sensor_group 조회
         List<SensorGroup> sensorGroups = sensorGroupRepository.findAll();

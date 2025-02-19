@@ -24,10 +24,15 @@ public class AppUserSensorGroupService {
     private final SensorGroupRepository sensorGroupRepository;
     private final AppUserSensorGroupRepository appUserSensorGroupRepository;
 
+    public static final boolean IS_UPDATE_ADMIN_GROUP_RUNNING = false;
+
     @Async
-    @Scheduled(fixedRate = 86400000, initialDelay = 10000)  // 1일 1회 실행 (1000ms * 60 * 60 * 24)
+    @Scheduled(fixedRate = 100000, initialDelay = 10000)  // 1일 1회 실행 (1000ms * 60 * 60 * 24 86400000)
     @Transactional
     public void asyncUpdateAdminSensorGroups() {
+        if (!IS_UPDATE_ADMIN_GROUP_RUNNING) {
+            return;
+        }
         log.info("`ADMIN` 유저의 SensorGroup 자동 업데이트 실행...");
         List<AppUser> adminUsers = appUserRepository.findByRolesContaining(Role.ADMIN.name());
 
