@@ -28,6 +28,12 @@ jobs:
     - name: Configure Docker Authentication
       run: gcloud auth configure-docker asia-northeast3-docker.pkg.dev
 
+    - name: Build Docker Image
+      run: docker build -t asia-northeast3-docker.pkg.dev/blinker-backend/blinker-repo/blinker-backend:latest .
+
+    - name: Push Docker Image to Artifact Registry
+      run: docker push asia-northeast3-docker.pkg.dev/blinker-backend/blinker-repo/blinker-backend:latest
+
     - name: 빌드 실패 Discord 알림
       if: failure()
       uses: tsickert/discord-webhook@v6.0.0
@@ -38,7 +44,7 @@ jobs:
         embed-description: |
           𝑒 **배포 환경:** `prod`
           𝘣 **대상 브랜치:** `${{ github.ref_name }}`
-          𝑡 **소요 시간:** `${{ env.BUILD_TIME }}초`
+          𝑡 **소요 시간:** `$(( $(date +%s) - $START_TIME ))초`
           𝒈 **액션 링크:** https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         embed-color: "16711680"
 
@@ -49,12 +55,6 @@ jobs:
 
     - name : Get Repository
       uses : actions/checkout@v3
-
-    - name: Build Docker Image
-      run: docker build -t asia-northeast3-docker.pkg.dev/blinker-backend/blinker-repo/blinker-backend:latest .
-
-    - name: Push Docker Image to Artifact Registry
-      run: docker push asia-northeast3-docker.pkg.dev/blinker-backend/blinker-repo/blinker-backend:latest
 
     - name: Deploy to Cloud Run
       run: |
@@ -77,7 +77,7 @@ jobs:
         embed-description: |
           𝑒 **배포 환경:** `prod`
           𝘣 **대상 브랜치:** `${{ github.ref_name }}`
-          𝑡 **소요 시간:** `${{ env.BUILD_TIME }}초`
+          𝑡 **소요 시간:** `$(( $(date +%s) - $START_TIME ))초`
           𝒈 **액션 링크:** https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         embed-color: "16711680"
 
