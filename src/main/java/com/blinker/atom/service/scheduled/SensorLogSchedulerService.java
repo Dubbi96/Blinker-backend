@@ -82,7 +82,7 @@ public class SensorLogSchedulerService {
     }
 
     @Async
-    @Transactional(readOnly = true)
+    @Transactional
     public void asyncFetchAndSaveSensorLogs() {
         // 모든 sensor_group 조회
         List<SensorGroup> sensorGroups = sensorGroupRepository.findAll();
