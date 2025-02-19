@@ -71,7 +71,7 @@ public class SensorLogSchedulerService {
      *  5-1-9. cmd 71번의 경우도 GPS 좌표이나, 67번, 73로그 둘다 가지고 있으므로 로그 무시
      * 	6.	해당 작업을 Spring Scheduler + Async를 이용해 주기적으로 실행.
      * 	*/
-    @Scheduled(fixedRate = 86400000)  // 1일 1회 실행 (1000ms * 60 * 60 * 24)
+    /*@Scheduled(fixedRate = 86400000)  // 1일 1회 실행 (1000ms * 60 * 60 * 24)
     public void fetchAndSaveSensorLogs() {
         try {
             log.info("🔹 Sensor Log 스케줄러 실행 중...");
@@ -79,11 +79,12 @@ public class SensorLogSchedulerService {
         } catch (Exception e) {
             log.error("스케줄러 실행 중 예외 발생", e);
         }
-    }
+    }*/
 
-    @Async
+    @Scheduled(fixedRate = 86400000)  // 1일 1회 실행 (1000ms * 60 * 60 * 24)
     @Transactional
-    public void asyncFetchAndSaveSensorLogs() {
+    public void fetchAndSaveSensorLogs() {
+        log.info("🔹 Sensor Log 스케줄러 실행 중...");
         // 모든 sensor_group 조회
         List<SensorGroup> sensorGroups = sensorGroupRepository.findAll();
 
