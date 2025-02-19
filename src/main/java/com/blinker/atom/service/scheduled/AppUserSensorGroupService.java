@@ -25,7 +25,7 @@ public class AppUserSensorGroupService {
     private final AppUserSensorGroupRepository appUserSensorGroupRepository;
 
     @Async
-    @Scheduled(fixedRate = 86400000, initialDelay = 20000)  // 1일 1회 실행 (1000ms * 60 * 60 * 24)
+    @Scheduled(fixedRate = 86400000, initialDelay = 10000)  // 1일 1회 실행 (1000ms * 60 * 60 * 24)
     @Transactional
     public void asyncUpdateAdminSensorGroups() {
         log.info("`ADMIN` 유저의 SensorGroup 자동 업데이트 실행...");
