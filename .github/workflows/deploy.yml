@@ -46,7 +46,7 @@ jobs:
           --allow-unauthenticated \
           --add-cloudsql-instances=blinker-db:asia-northeast3:blinker-atom-db \
           --set-env-vars SPRING_PROFILES_ACTIVE=prod \
-        ls -l /app
+
     - name: 종료 시간 기록
       id: end_time
       run: |
