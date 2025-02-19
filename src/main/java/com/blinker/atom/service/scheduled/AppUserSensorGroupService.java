@@ -5,6 +5,7 @@ import com.blinker.atom.config.error.ErrorValue;
 import com.blinker.atom.domain.appuser.*;
 import com.blinker.atom.domain.sensor.SensorGroup;
 import com.blinker.atom.domain.sensor.SensorGroupRepository;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -24,7 +25,7 @@ public class AppUserSensorGroupService {
     private final AppUserSensorGroupRepository appUserSensorGroupRepository;
 
     @Async
-    @Scheduled(fixedRate = 86400000)  // 1일 1회 실행 (1000ms * 60 * 60 * 24)
+    @Scheduled(fixedRate = 86400000, initialDelay = 20000)  // 1일 1회 실행 (1000ms * 60 * 60 * 24)
     @Transactional
     public void asyncUpdateAdminSensorGroups() {
         log.info("`ADMIN` 유저의 SensorGroup 자동 업데이트 실행...");

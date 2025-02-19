@@ -9,6 +9,7 @@ import com.blinker.atom.util.XmlUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -71,7 +72,7 @@ public class SensorLogSchedulerService {
      *  5-1-9. cmd 71번의 경우도 GPS 좌표이나, 67번, 73로그 둘다 가지고 있으므로 로그 무시
      * 	6.	해당 작업을 Spring Scheduler + Async를 이용해 주기적으로 실행.
      * 	*/
-    @Scheduled(fixedRate = 86400000)  // 1일 1회 실행 (1000ms * 60 * 60 * 24)
+    @Scheduled(fixedRate = 86400000, initialDelay = 20000)  // 1일 1회 실행 (1000ms * 60 * 60 * 24)
     public void fetchAndSaveSensorLogs() {
         log.info("🔹 Sensor Log 스케줄러 실행 중...");
         // 모든 sensor_group 조회
