@@ -2,9 +2,11 @@ spring:
   datasource:
     hikari:
       leak-detection-threshold: 10000
-      connection-timeout: 15000
-      max-lifetime: 58000
-      idle-timeout: 0
+      connection-timeout: 30000
+      max-lifetime: 180000
+      idle-timeout: 600000
+      maximum-pool-size: 10
+      minimum-idle: 3
       transaction-isolation: TRANSACTION_READ_COMMITTED
       pool-name: hikari-rw-pool
       data-source-properties:
@@ -19,6 +21,7 @@ spring:
         elideSetAutoCommits: true
         maintainTimeStats: false
       auto-commit: false
+
 
 ---
 spring:
