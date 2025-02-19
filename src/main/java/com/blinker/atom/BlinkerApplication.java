@@ -13,7 +13,6 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @SpringBootApplication
 @EnableJpaAuditing
 @EnableScheduling
-@EnableJpaRepositories
 @EnableAsync
 public class BlinkerApplication {
 

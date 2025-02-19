@@ -24,16 +24,31 @@ public class AppUserSensorGroupService {
     private final AppUserSensorGroupRepository appUserSensorGroupRepository;
 
     @Async
+    @Transactional(readOnly = true)
+    public void updateAdminSensorGroups() {
+        try {
+            log.info("🔹 어드민 센서 업데이트 스케줄러 실행 중...");
+            asyncUpdateAdminSensorGroups();
+        } catch (Exception e) {
+            log.error("스케줄러 실행 중 예외 발생", e);
+        }
+    }
+
+    @Async
     @Scheduled(fixedRate = 86400000)  // 1일 1회 실행 (1000ms * 60 * 60 * 24)
     @Transactional
-    public void updateAdminSensorGroups() {
-        log.info("`ADMIN` 유저의 SensorGroup 자동 업데이트 실행...");
-        List<AppUser> adminUsers = appUserRepository.findByRolesContaining(Role.ADMIN.name());
+    public void asyncUpdateAdminSensorGroups() {
+        try{
+            Thread.sleep(30000);
+        } catch (InterruptedException e) {
+            log.info("`ADMIN` 유저의 SensorGroup 자동 업데이트 실행...");
+            List<AppUser> adminUsers = appUserRepository.findByRolesContaining(Role.ADMIN.name());
 
-        for (AppUser admin : adminUsers) {
-            assignSensorGroups(admin);
+            for (AppUser admin : adminUsers) {
+                assignSensorGroups(admin);
+            }
+            log.info("모든 `ADMIN` 계정의 SensorGroup 업데이트 완료");
         }
-        log.info("모든 `ADMIN` 계정의 SensorGroup 업데이트 완료");
     }
 
     /**

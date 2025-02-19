@@ -84,26 +84,30 @@ public class SensorLogSchedulerService {
     @Async
     @Transactional(readOnly = true)
     public void asyncFetchAndSaveSensorLogs() {
-        // 모든 sensor_group 조회
-        List<SensorGroup> sensorGroups = sensorGroupRepository.findAll();
+        try {
+            Thread.sleep(30000);
+        } catch (InterruptedException e) {
+            // 모든 sensor_group 조회
+            List<SensorGroup> sensorGroups = sensorGroupRepository.findAll();
 
-        for (SensorGroup group : sensorGroups) {
-            String sensorGroupId = group.getId();
-            String url = String.format("%s/%s/v1_0/remoteCSE-%s/container-LoRa?fu=1&ty=4",
-                    baseUrl, appEui, sensorGroupId);
+            for (SensorGroup group : sensorGroups) {
+                String sensorGroupId = group.getId();
+                String url = String.format("%s/%s/v1_0/remoteCSE-%s/container-LoRa?fu=1&ty=4",
+                        baseUrl, appEui, sensorGroupId);
 
-            String response = HttpClientUtil.get(url, origin, uKey, sensorGroupId);
-            log.info("Fetching Sensor Log at URL: {}", response);
-            if (response == null || response.isEmpty()) {
-                log.warn("API 응답이 없음. SensorGroup: {}", sensorGroupId);
-                continue;
+                String response = HttpClientUtil.get(url, origin, uKey, sensorGroupId);
+                log.info("Fetching Sensor Log at URL: {}", response);
+                if (response == null || response.isEmpty()) {
+                    log.warn("API 응답이 없음. SensorGroup: {}", sensorGroupId);
+                    continue;
+                }
+
+                // XML 파싱하여 contentInstance 리스트 추출
+                List<String> eventCodes = extractContentInstanceUri(response);
+
+                // SensorLog 저장 (중복 방지)
+                saveSensorLogs(eventCodes, group);
             }
-
-            // XML 파싱하여 contentInstance 리스트 추출
-            List<String> eventCodes = extractContentInstanceUri(response);
-
-            // SensorLog 저장 (중복 방지)
-            saveSensorLogs(eventCodes, group);
         }
     }
 
