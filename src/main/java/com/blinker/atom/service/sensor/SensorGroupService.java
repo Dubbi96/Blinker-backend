@@ -4,7 +4,6 @@ import com.blinker.atom.config.error.CustomException;
 import com.blinker.atom.config.error.ErrorValue;
 import com.blinker.atom.domain.appuser.AppUser;
 import com.blinker.atom.domain.appuser.AppUserRepository;
-import com.blinker.atom.domain.sensor.Sensor;
 import com.blinker.atom.domain.sensor.SensorGroup;
 import com.blinker.atom.domain.sensor.SensorGroupRepository;
 import com.blinker.atom.dto.sensor.SensorGroupResponseDto;
@@ -15,7 +14,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor

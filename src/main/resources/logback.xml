@@ -1,12 +1,6 @@
 <configuration>
   <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
 
-  <springProfile name="local">
-    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
-    <root level="INFO">
-      <appender-ref ref="CONSOLE"/>
-    </root>
-  </springProfile>
   <springProfile name="dev">
     <property resource="application.yml"/>
     <springProperty name="DISCORD_WEBHOOK_URL" source="logging.discord.webhook-url"/>

@@ -3,7 +3,6 @@ package com.blinker.atom.service.appuser;
 import com.blinker.atom.config.error.CustomException;
 import com.blinker.atom.config.error.ErrorValue;
 import com.blinker.atom.config.security.JwtProvider;
-import com.blinker.atom.config.security.LoginAppUser;
 import com.blinker.atom.domain.appuser.AppUser;
 import com.blinker.atom.domain.appuser.AppUserRepository;
 import com.blinker.atom.domain.appuser.Role;
@@ -14,7 +13,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor

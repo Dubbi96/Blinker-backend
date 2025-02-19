@@ -5,7 +5,7 @@ import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.Type;
-import org.springframework.data.relational.core.mapping.Table;
+
 
 import java.time.LocalDateTime;
 import java.util.List;

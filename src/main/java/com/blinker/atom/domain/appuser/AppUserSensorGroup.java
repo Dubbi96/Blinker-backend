@@ -2,7 +2,6 @@
 package com.blinker.atom.domain.appuser;
 
 import com.blinker.atom.domain.sensor.SensorGroup;
-import org.springframework.data.relational.core.mapping.Table;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

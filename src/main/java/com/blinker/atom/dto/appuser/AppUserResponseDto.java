@@ -1,10 +1,7 @@
 package com.blinker.atom.dto.appuser;
 
 import com.blinker.atom.domain.appuser.AppUser;
-import com.blinker.atom.domain.appuser.Role;
 import lombok.Data;
-
-import java.util.List;
 
 @Data
 public class AppUserResponseDto {
