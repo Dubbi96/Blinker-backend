@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  set-up:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
 
@@ -34,11 +34,6 @@ jobs:
     - name: Push Docker Image to Artifact Registry
       run: docker push asia-northeast3-docker.pkg.dev/blinker-backend/blinker-repo/blinker-backend:latest
 
-  deploy:
-    runs-on : ubuntu-latest
-    needs: set-up
-    steps:
-
     - name: Deploy to Cloud Run
       run: |
         gcloud run deploy blinker-backend \
@@ -49,11 +44,6 @@ jobs:
           --add-cloudsql-instances=blinker-db:asia-northeast3:blinker-atom-db \
           --set-env-vars SPRING_PROFILES_ACTIVE=prod \
           --set-env-vars GOOGLE_APPLICATION_CREDENTIALS=/app/blinker-backend-key.json
-
-  notification:
-    runs-on : ubuntu-latest
-    needs: deploy
-    steps:
 
     - name: 종료 시간 기록
       id: end_time
@@ -83,6 +73,6 @@ jobs:
         embed-description: |
           𝑒 **배포 환경:** `prod`
           𝘣 **대상 브랜치:** `${{ github.ref_name }}`
-          𝑡 **소요 시간:** `$(( $(date +%s) - $START_TIME ))초`
+          𝑡 **소요 시간:** `${{ env.BUILD_TIME }}초`
           𝒈 **액션 링크:** https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         embed-color: "16711680"
