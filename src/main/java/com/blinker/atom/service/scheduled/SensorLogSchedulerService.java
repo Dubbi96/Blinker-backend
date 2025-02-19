@@ -80,6 +80,7 @@ public class SensorLogSchedulerService {
      * 	6.	해당 작업을 Spring Scheduler + Async를 이용해 주기적으로 실행.
      * 	*/
     @Scheduled(fixedRate = 100000, initialDelay = 20000)  // 1일 1회 실행 (1000ms * 60 * 60 * 24 86400000)
+    @Transactional(readOnly = true)
     public void fetchAndSaveSensorLogs() {
         if (!IS_FETCH_SENSOR_LOG_RUNNING) {
             return;
