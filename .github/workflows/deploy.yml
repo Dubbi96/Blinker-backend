@@ -48,7 +48,7 @@ jobs:
 
     - name: 종료 시간 기록
       id: end_time
-      run: echo "BUILD_TIME=$(date +%s)" >> $GITHUB_ENV
+      run: echo "BUILD_TIME=$(date +%s - $START_TIME)" >> $GITHUB_ENV
 
     - name : 배포 실패 시 종료 시간 기록
       if: failure()
