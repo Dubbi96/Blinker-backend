@@ -48,16 +48,14 @@ jobs:
 
     - name: 종료 시간 기록
       id: end_time
-      run: |
-        echo "END_TIME=$(date +%s)" >> $GITHUB_ENV
-        echo BUILD_TIME=$((END_TIME - START_TIME)) >> $GITHUB_ENV
+      run: echo "BUILD_TIME=$(( $(date +%s) - $START_TIME ))" >> $GITHUB_ENV
 
     - name: 빌드 성공 Discord 알림
       if: success()
       uses: tsickert/discord-webhook@v6.0.0
       with:
         webhook-url: ${{ secrets.DISCORD_WEBHOOK_URL }}
-        embed-title: "✅**배포 성공.**"
+        embed-title: "✅ **배포 성공.**"
         embed-url: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         embed-description: |
           𝑒 **배포 환경:** `prod`
@@ -67,15 +65,15 @@ jobs:
         embed-color: "3066993"
 
     - name: 빌드 실패 Discord 알림
-      if: success()
+      if: failure()
       uses: tsickert/discord-webhook@v6.0.0
       with:
         webhook-url: ${{ secrets.DISCORD_WEBHOOK_URL }}
-        embed-title: "🌋**배포 실패.**"
+        embed-title: "🌋 **배포 실패.**"
         embed-url: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         embed-description: |
           𝑒 **배포 환경:** `prod`
           𝘣 **대상 브랜치:** `${{ github.ref_name }}`
           𝑡 **소요 시간:** `${{ env.BUILD_TIME }}초`
-          𝒈 **액션 링크:** "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          𝒈 **액션 링크:** https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         embed-color: "16711680"
