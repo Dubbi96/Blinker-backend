@@ -91,6 +91,7 @@ public class WebSecurityConfig {
                                 .requestMatchers(HttpMethod.GET, "sensor/groups/**", "auth/user/**", "auth/users").hasAuthority("ADMIN")
                                 .requestMatchers(HttpMethod.DELETE, "auth/user/**").hasAuthority("ADMIN")
                                 .requestMatchers(HttpMethod.PUT, "auth/user/**").hasAuthority("ADMIN")
+                                .requestMatchers(HttpMethod.POST, "scheduler/**").permitAll()
                                 .requestMatchers(HttpMethod.POST, "/project/page/*/section", "/project/element", "/file/applicant/step/**", "/announcement/**", "/faq/**", "/qna/**").hasAuthority("ADMIN")
                                 .requestMatchers("/project/**", "/corporation/**", "/qna/**", "/faq/**", "/file/**").hasAnyAuthority("VIEWER", "ADMIN")
                         .anyRequest().authenticated()

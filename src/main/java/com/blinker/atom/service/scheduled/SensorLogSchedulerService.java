@@ -282,4 +282,14 @@ public class SensorLogSchedulerService {
                 .build();
         sensorRepository.save(updatedSensor);
     }
+
+    public void startScheduler() {
+        IS_FETCH_SENSOR_LOG_RUNNING = true;
+        log.info("✅ 스케줄러가 활성화되었습니다.");
+    }
+
+    public void stopScheduler() {
+        IS_FETCH_SENSOR_LOG_RUNNING = false;
+        log.info("⛔ 스케줄러가 비활성화되었습니다.");
+    }
 }

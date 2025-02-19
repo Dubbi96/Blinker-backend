@@ -24,7 +24,7 @@ public class AppUserSensorGroupService {
     private final SensorGroupRepository sensorGroupRepository;
     private final AppUserSensorGroupRepository appUserSensorGroupRepository;
 
-    public static final boolean IS_UPDATE_ADMIN_GROUP_RUNNING = false;
+    public static boolean IS_UPDATE_ADMIN_GROUP_RUNNING = false;
 
     @Async
     @Scheduled(fixedRate = 100000, initialDelay = 10000)  // 1일 1회 실행 (1000ms * 60 * 60 * 24 86400000)
@@ -69,5 +69,15 @@ public class AppUserSensorGroupService {
             assignSensorGroups(user);
             log.info("ADMIN 계정 {}에게 모든 SensorGroup 자동 할당 완료", userId);
         }
+    }
+
+    public void startScheduler() {
+        IS_UPDATE_ADMIN_GROUP_RUNNING = true;
+        log.info("✅ 스케줄러가 활성화되었습니다.");
+    }
+
+    public void stopScheduler() {
+        IS_UPDATE_ADMIN_GROUP_RUNNING = false;
+        log.info("⛔ 스케줄러가 비활성화되었습니다.");
     }
 }
