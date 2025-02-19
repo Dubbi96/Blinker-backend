@@ -48,7 +48,9 @@ jobs:
 
     - name: 종료 시간 기록
       id: end_time
-      run: echo "END_TIME=$(date +%s)" >> $GITHUB_ENV
+      run: |
+        echo "END_TIME=$(date +%s)" >> $GITHUB_ENV
+        echo BUILD_TIME=$((END_TIME - START_TIME)) >> $GITHUB_ENV
 
     - name: 빌드 성공 Discord 알림
       if: success()
@@ -60,25 +62,20 @@ jobs:
         embed-description: |
           𝑒 **배포 환경:** `prod`
           𝘣 **대상 브랜치:** `${{ github.ref_name }}`
-          𝑡 **소요 시간:** `${{ env.END_TIME }} - ${{env.START_TIME }}초`
-        embed-color: "3066993"  # 초록색 성공 컬러
+          𝑡 **소요 시간:** `${{ env.BUILD_TIME }}초`
+          𝒈 **액션 링크:** "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        embed-color: "3066993"
 
-    - name: 빌드 실패 Slack 알림
-      if: failure()
-      run: |
-        BUILD_TIME=$((END_TIME - START_TIME))
-        curl -X POST -H 'Content-type: application/json' \
-        --data '{
-          "text": "🌋 *배포 실패!* ",
-          "attachments": [
-            {
-              "color": "#ff0000",
-              "fields": [
-                { "title": "Status", "value": "실패 🌋", "short": true },
-                { "title": "Branch", "value": "'$(git rev-parse --abbrev-ref HEAD)'", "short": true },
-                { "title": "Build Time", "value": "'"$BUILD_TIME"초'", "short": true },
-                { "title": "Committer", "value": "'"$(git config user.name)"'", "short": true }
-              ]
-            }
-          ]
-        }' "${{ secrets.SLACK_WEBHOOK_URL }}"
+    - name: 빌드 실패 Discord 알림
+      if: success()
+      uses: tsickert/discord-webhook@v6.0.0
+      with:
+        webhook-url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        embed-title: "🌋**배포 실패.**"
+        embed-url: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        embed-description: |
+          𝑒 **배포 환경:** `prod`
+          𝘣 **대상 브랜치:** `${{ github.ref_name }}`
+          𝑡 **소요 시간:** `${{ env.BUILD_TIME }}초`
+          𝒈 **액션 링크:** "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        embed-color: "16711680"
