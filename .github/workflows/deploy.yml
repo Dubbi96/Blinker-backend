@@ -48,7 +48,7 @@ jobs:
 
     - name: 종료 시간 기록
       id: end_time
-      run: echo "END_TIME=$(date +%s)" >> $GITHUB_ENV
+      run: echo "BUILD_TIME=$(date +%s)" >> $GITHUB_ENV
 
     - name : 배포 실패 시 종료 시간 기록
       if: failure()
@@ -69,10 +69,6 @@ jobs:
           𝑡 **소요 시간:** `${{ env.BUILD_TIME }}초`
           𝒈 **액션 링크:** https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         embed-color: "16711680"
-
-    - name: 종료 시간 기록
-      id: end_time
-      run: echo "BUILD_TIME=$(( $(date +%s) - ${{ needs.set-up.outputs.start_time }} ))" >> $GITHUB_ENV
 
     - name: 빌드 성공 Discord 알림
       if: success()
