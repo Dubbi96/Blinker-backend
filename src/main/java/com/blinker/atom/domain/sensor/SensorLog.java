@@ -2,16 +2,14 @@ package com.blinker.atom.domain.sensor;
 
 import io.hypersistence.utils.hibernate.type.json.JsonType;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import org.hibernate.annotations.Type;
 
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "sensor_log", uniqueConstraints = @UniqueConstraint(columnNames = {"sensor_group_id","event_code"}))
+@Setter
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
@@ -34,12 +32,17 @@ public class SensorLog {
     @Column(name = "event_details", columnDefinition = "jsonb")
     private String eventDetails;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(name = "sensor_device_number")
+    private String sensorDeviceNumber;
+
+    @Column(name = "is_processed")
+    private boolean isProcessed;
+
+    @Column(name = "created_at", updatable = false)
     @Temporal(TemporalType.TIMESTAMP)
     private LocalDateTime createdAt;
 
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
+    public void markAsProcessed() {
+        this.isProcessed = true;
     }
 }

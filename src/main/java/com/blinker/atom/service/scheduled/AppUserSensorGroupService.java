@@ -5,7 +5,6 @@ import com.blinker.atom.config.error.ErrorValue;
 import com.blinker.atom.domain.appuser.*;
 import com.blinker.atom.domain.sensor.SensorGroup;
 import com.blinker.atom.domain.sensor.SensorGroupRepository;
-import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -13,9 +12,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
@@ -25,22 +21,6 @@ public class AppUserSensorGroupService {
     private final AppUserRepository appUserRepository;
     private final SensorGroupRepository sensorGroupRepository;
     private final AppUserSensorGroupRepository appUserSensorGroupRepository;
-
-    public static boolean IS_UPDATE_ADMIN_GROUP_RUNNING = false;
-
-    private final ExecutorService executorService = Executors.newFixedThreadPool(10);
-
-    @PreDestroy
-    public void shutdownExecutor() {
-        executorService.shutdown();
-        try {
-            if (!executorService.awaitTermination(5, TimeUnit.SECONDS)) {
-                executorService.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            executorService.shutdownNow();
-        }
-    }
 
     @Transactional
     public void updateAdminSensorGroups() {
@@ -82,13 +62,4 @@ public class AppUserSensorGroupService {
         }
     }
 
-    public void startScheduler() {
-        IS_UPDATE_ADMIN_GROUP_RUNNING = true;
-        log.info("✅ 스케줄러가 활성화되었습니다.");
-    }
-
-    public void stopScheduler() {
-        IS_UPDATE_ADMIN_GROUP_RUNNING = false;
-        log.info("⛔ 스케줄러가 비활성화되었습니다.");
-    }
 }

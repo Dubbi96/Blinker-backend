@@ -6,12 +6,14 @@ import lombok.Getter;
 public enum ErrorValue {
     ACCESS_DENIED("허용되지 않은 접근입니다."),
     UNAUTHORIZED("인증되지 않은 사용자입니다."),
+    UNAUTHORIZED_SERVICE("권한 외 요청입니다."),
     UNKNOWN_ERROR("알 수 없는 에러입니다."),
     TOKEN_NOT_FOUND("토큰이 존재하지 않습니다."),
     TOKEN_EXPIRED("토큰이 만료되었습니다."),
     ACCOUNT_NOT_FOUND("존재하지 않는 계정입니다."),
     SUBJECT_NOT_FOUND("존재하지 않는 종목입니다."),
     EMAIL_ALREADY_EXISTS("이미 존재하는 이메일입니다."),
+    SENSOR_NOT_FOUND("존재하지 않는 센서 입니다."),
 
     USER_KEY_ALREADY_EXISTS("이미 존재하는 외부 유저입니다."),
     NICKNAME_ALREADY_EXISTS("이미 존재하는 닉네임입니다."),

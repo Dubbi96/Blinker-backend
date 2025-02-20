@@ -1,5 +1,6 @@
 package com.blinker.atom.domain.sensor;
 
+import com.blinker.atom.dto.thingplug.ParsedSensorLogDto;
 import io.hypersistence.utils.hibernate.type.array.ListArrayType;
 import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.*;
@@ -126,6 +127,9 @@ public class Sensor {
     @Column(name = "lastly_modified_with")
     private String lastlyModifiedWith;
 
+    @Column(name = "memo")
+    private String memo;
+
     @Column(name = "created_at", updatable = false, nullable = false)
     @Temporal(TemporalType.TIMESTAMP)
     private LocalDateTime createdAt;
@@ -139,9 +143,5 @@ public class Sensor {
         this.createdAt = LocalDateTime.now();
     }
 
-    //preupdate는 setter 사용 시에만 사용 가능
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
-    }
+
 }
