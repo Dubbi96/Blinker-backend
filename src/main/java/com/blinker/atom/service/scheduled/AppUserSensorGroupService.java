@@ -9,7 +9,6 @@ import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,12 +42,8 @@ public class AppUserSensorGroupService {
         }
     }
 
-    @Scheduled(cron = "0 0 * * * *")  //fixedRate = 86400000 1일 1회 실행 (1000ms * 60 * 60 * 24 86400000)
     @Transactional
-    public void asyncUpdateAdminSensorGroups() {
-        /*if (!IS_UPDATE_ADMIN_GROUP_RUNNING) {
-            return;
-        }*/
+    public void updateAdminSensorGroups() {
         log.info("`ADMIN` 유저의 SensorGroup 자동 업데이트 실행...");
         List<AppUser> adminUsers = appUserRepository.findByRolesContaining(Role.ADMIN.name());
 

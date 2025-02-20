@@ -78,10 +78,6 @@
             <version>1.21.0</version>
         </dependency>
         <dependency>
-            <groupId>com.google.cloud</groupId>
-            <artifactId>google-cloud-logging-logback</artifactId>
-        </dependency>
-        <dependency>
             <groupId>com.github.napstr</groupId>
             <artifactId>logback-discord-appender</artifactId>
             <version>1.0.0</version>

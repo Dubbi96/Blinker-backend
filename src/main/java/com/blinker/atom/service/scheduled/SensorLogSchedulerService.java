@@ -79,7 +79,6 @@ public class SensorLogSchedulerService {
      *  5-1-9. cmd 71번의 경우도 GPS 좌표이나, 67번, 73로그 둘다 가지고 있으므로 로그 무시
      * 	6.	해당 작업을 Spring Scheduler + Async를 이용해 주기적으로 실행.
      * 	*/
-    @Scheduled(cron = "0 55 * * * *")  // 1일 1회 실행 (1000ms * 60 * 60 * 24 86400000) fixedRate = 86400000, initialDelay = 600000
     @Transactional(readOnly = true)
     public void fetchAndSaveSensorLogs() {
         /*if (!IS_FETCH_SENSOR_LOG_RUNNING) {
@@ -225,7 +224,10 @@ public class SensorLogSchedulerService {
 
         if(parsedSensorLog.getCmd().equals("67") || parsedSensorLog.getCmd().equals("73")) {
             // event log에서 lat, long 정보 추출
-            List<String> sensorLogLatitudeAndLongitudeAsString = List.of(jsonNode.get("ppt").get("gwl").asText().split(","));
+            List<String> sensorLogLatitudeAndLongitudeAsString = new ArrayList<>();
+            if(!jsonNode.get("ppt").get("gwl").isNull()) {
+                sensorLogLatitudeAndLongitudeAsString = List.of(jsonNode.get("ppt").get("gwl").asText().split(","));
+            }
             // Device Number로 Sensor 찾기
             Optional<Sensor> optionalSensor = sensorRepository.findSensorByDeviceNumber(parsedSensorLog.getDeviceNumber());
             if (optionalSensor.isPresent()) {
