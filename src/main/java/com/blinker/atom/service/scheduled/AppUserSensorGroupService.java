@@ -25,7 +25,7 @@ public class AppUserSensorGroupService {
 
     public static boolean IS_UPDATE_ADMIN_GROUP_RUNNING = false;
 
-    @Scheduled(fixedRate = 86400000, initialDelay = 100000)  // 1일 1회 실행 (1000ms * 60 * 60 * 24 86400000)
+    @Scheduled(cron = "0 0 * * * *", initialDelay = 100000)  //fixedRate = 86400000 1일 1회 실행 (1000ms * 60 * 60 * 24 86400000)
     @Transactional
     public void asyncUpdateAdminSensorGroups() {
         /*if (!IS_UPDATE_ADMIN_GROUP_RUNNING) {
