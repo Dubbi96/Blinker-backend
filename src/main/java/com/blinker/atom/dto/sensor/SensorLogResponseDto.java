@@ -10,7 +10,7 @@ import java.util.Map;
 @Data
 @NoArgsConstructor
 public class SensorLogResponseDto {
-    private Long logId;
+    private Long sensorLogId;
     private String cmd;
     private LocalDateTime createdAt;
     private String eventCode;
@@ -21,7 +21,7 @@ public class SensorLogResponseDto {
     private Map<String,Boolean> faultInformation;
 
     public SensorLogResponseDto(SensorLog sensorLog, String eventLog, String cmd, Map<String,Boolean> faultInformation) {
-        this.logId = sensorLog.getId();
+        this.sensorLogId = sensorLog.getId();
         this.cmd = cmd;
         this.createdAt = sensorLog.getCreatedAt();
         this.eventCode = sensorLog.getEventCode();
@@ -33,7 +33,7 @@ public class SensorLogResponseDto {
     }
 
     public SensorLogResponseDto(SensorLog sensorLog) {
-        this.logId = sensorLog.getId();
+        this.sensorLogId = sensorLog.getId();
         this.eventCode = sensorLog.getEventCode();
         this.sensorGroupId = sensorLog.getSensorGroup().getId();
         this.sensorDeviceNumber = sensorLog.getSensorDeviceNumber();

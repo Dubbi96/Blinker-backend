@@ -15,7 +15,7 @@ import java.util.stream.Collectors;
 @Data
 public class SensorGroupResponseDto {
 
-    private String id;
+    private String sensorGroupId;
     private String groupKey;
     private Long sensorCount;
     private Long faultCount;
@@ -26,7 +26,7 @@ public class SensorGroupResponseDto {
 
     @Data
     public static class SensorDto{
-        private Long id;
+        private Long sensorId;
         private String deviceNumber;
         private Long groupPositionNumber;
         private Double deviceId;
@@ -59,7 +59,7 @@ public class SensorGroupResponseDto {
         private LocalDateTime updatedAt;
 
         public SensorDto(Sensor sensor) {
-            this.id = sensor.getId();
+            this.sensorId = sensor.getId();
             this.deviceNumber = sensor.getDeviceNumber();
             this.deviceId = sensor.getDeviceId();
             this.longitude = sensor.getLongitude();
@@ -94,7 +94,7 @@ public class SensorGroupResponseDto {
     }
 
     public SensorGroupResponseDto(SensorGroup sensorGroup) {
-        this.id = sensorGroup.getId();
+        this.sensorGroupId = sensorGroup.getId();
         this.groupKey = sensorGroup.getGroupKey();
         this.sensorCount = sensorGroup.getSensorCount();
         this.faultCount = sensorGroup.getFaultCount();

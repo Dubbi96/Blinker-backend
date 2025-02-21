@@ -5,6 +5,7 @@ import com.blinker.atom.domain.appuser.AppUser;
 import com.blinker.atom.dto.sensor.SensorDetailResponseDto;
 import com.blinker.atom.dto.sensor.SensorGroupResponseDto;
 import com.blinker.atom.dto.sensor.SensorLogResponseDto;
+import com.blinker.atom.dto.sensor.UnregisteredSensorGroupResponseDto;
 import com.blinker.atom.service.sensor.SensorGroupService;
 import com.blinker.atom.service.sensor.SensorService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -51,6 +52,12 @@ public class SensorController {
     @Operation(summary = "sensorId와 관련된 상세 정보 조회", description = "<b>fault information</b>이 하나라도 <b>true</b>일 경우 <b>status = 오류</b>로 표현, 기기 위치는 <b>latitude, longitude</b>로 전달")
     public SensorDetailResponseDto getSensorDetail(@PathVariable("sensorId") Long sensorId, @LoginAppUser AppUser appUser) {
         return sensorService.getSensorDetailBySensorId(sensorId, appUser);
+    }
+
+    @GetMapping("/groups/unregistered")
+    @Operation(summary = "미등록 된 sensorGroupId 조회", description = "<b>미등록 된 센서 목록 조회</b> <br> 미등록은 ADMIN 계정을 제외한 User 계정에 등록되지 않은 상태 <br> ***@Value : longitude, latitude***는 해당 SensorGroup의 Master센서의 위치만 반환 <br> 만약 해당 SensorGroup에 아무 Sensor도 없을 경우 ***@Value : longitude, latitude***는 ***null***로 반환")
+    public List<UnregisteredSensorGroupResponseDto> getSensorDetail() {
+        return sensorGroupService.getUnregisteredSensorGroups();
     }
 
 }

@@ -42,4 +42,15 @@ public interface SensorGroupRepository extends JpaRepository<SensorGroup, String
            "JOIN AppUserSensorGroup ausg ON sg.id = ausg.sensorGroup.id " +
            "WHERE ausg.appUser.id = :userId")
     List<SensorGroup> findSensorGroupsWithSensorsByUserId(@Param("userId") Long userId);
+
+    @Query(value = """
+        SELECT * FROM sensor_group sg
+        WHERE sg.sensor_group_id NOT IN (
+            SELECT ausg.sensor_group_id
+            FROM app_user_sensor_group ausg
+            JOIN app_user au ON ausg.app_user_id = au.app_user_id
+            WHERE 'ADMIN' = ANY(au.roles)
+        )
+        """, nativeQuery = true)
+    List<SensorGroup> findUnrelatedSensorGroups();
 }

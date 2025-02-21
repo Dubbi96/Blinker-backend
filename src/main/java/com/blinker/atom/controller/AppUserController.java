@@ -21,7 +21,7 @@ public class AppUserController {
 
     @PostMapping("/sign-in")
     public SignInResponseDto login(@RequestBody SignInRequestDto authRequest) {
-        log.info("로그인 요청 받음: {}", authRequest.getUsername());
+        log.info("로그인 요청 받음: {}", authRequest.getUserId());
         return authService.login(authRequest);
     }
 

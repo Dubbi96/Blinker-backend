@@ -4,9 +4,9 @@ import com.blinker.atom.config.error.CustomException;
 import com.blinker.atom.config.error.ErrorValue;
 import com.blinker.atom.domain.appuser.AppUser;
 import com.blinker.atom.domain.appuser.AppUserRepository;
-import com.blinker.atom.domain.sensor.SensorGroup;
-import com.blinker.atom.domain.sensor.SensorGroupRepository;
+import com.blinker.atom.domain.sensor.*;
 import com.blinker.atom.dto.sensor.SensorGroupResponseDto;
+import com.blinker.atom.dto.sensor.UnregisteredSensorGroupResponseDto;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
@@ -21,6 +21,7 @@ public class SensorGroupService {
 
     private final AppUserRepository appUserRepository;
     private final SensorGroupRepository sensorGroupRepository;
+    private final SensorRepository sensorRepository;
 
     /**@LoginAppUser 토큰에서 가져온 AppUser가 보유한 SensorGroup의 모든 정보 조회*/
     @Transactional(readOnly = true)
@@ -48,6 +49,18 @@ public class SensorGroupService {
                             .sorted(Comparator.comparing(SensorGroupResponseDto.SensorDto::getGroupPositionNumber))
                             .toList());
                     return dto;})
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<UnregisteredSensorGroupResponseDto> getUnregisteredSensorGroups() {
+        List<SensorGroup> sensorGroups = sensorGroupRepository.findUnrelatedSensorGroups();
+        return sensorGroups.stream()
+                .sorted(Comparator.comparing(SensorGroup::getId))
+                .map(sensorGroup -> {
+                    Sensor s = sensorRepository.findMasterSensorBySensorGroup(sensorGroup.getId()).orElseGet(Sensor::new);
+                    return new UnregisteredSensorGroupResponseDto(sensorGroup, s.getLongitude(),s.getLongitude());
+                })
                 .toList();
     }
 }

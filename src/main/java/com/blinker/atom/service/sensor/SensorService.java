@@ -4,13 +4,10 @@ import com.blinker.atom.config.error.CustomException;
 import com.blinker.atom.config.error.ErrorValue;
 import com.blinker.atom.domain.appuser.AppUser;
 import com.blinker.atom.domain.appuser.AppUserSensorGroupRepository;
-import com.blinker.atom.domain.sensor.Sensor;
-import com.blinker.atom.domain.sensor.SensorLog;
-import com.blinker.atom.domain.sensor.SensorLogRepository;
-import com.blinker.atom.domain.sensor.SensorRepository;
+import com.blinker.atom.domain.sensor.*;
 import com.blinker.atom.dto.sensor.SensorDetailResponseDto;
-import com.blinker.atom.dto.sensor.SensorGroupResponseDto;
 import com.blinker.atom.dto.sensor.SensorLogResponseDto;
+import com.blinker.atom.dto.sensor.UnregisteredSensorGroupResponseDto;
 import com.blinker.atom.dto.thingplug.ParsedSensorLogDto;
 import com.blinker.atom.util.ParsingUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -21,12 +18,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor

@@ -24,7 +24,7 @@ public class AppUserService {
 
     @Transactional(readOnly = true)
     public SignInResponseDto login(SignInRequestDto accountRequestDto) {
-        AppUser appUser = (AppUser) appUserRepository.findByUserId(accountRequestDto.getUsername())
+        AppUser appUser = (AppUser) appUserRepository.findByUserId(accountRequestDto.getUserId())
                 .orElseThrow(() -> new CustomException(ErrorValue.ACCOUNT_NOT_FOUND.getMessage()));
         if (!passwordEncoder.matches(accountRequestDto.getPassword() + appUser.getSalt(), appUser.getPassword()))
             throw new CustomException("올바르지 않은 아이디 및 비밀번호입니다.");

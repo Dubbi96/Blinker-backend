@@ -13,22 +13,13 @@ import java.util.Optional;
 
 @Repository
 public interface SensorRepository extends JpaRepository<Sensor,Long> {
-    Optional<Sensor> findBySensorGroup(SensorGroup sensorGroup);
+    @Query(value = "SELECT s.longitude, s.latitude FROM Sensor s WHERE s.sensorGroup.id = :sensorGroupId")
+    Optional<Sensor> findMasterSensorBySensorGroup(String sensorGroupId);
+
     Optional<Sensor> findSensorByDeviceId(Long deviceId);
-    @Modifying
-    @Query(value = "INSERT INTO sensor_group (sensor_group_id, created_at, fault_count, sensor_group_key, sensor_count, ssid, ssid_updated_at, updated_at) " +
-                   "VALUES (:sensorGroupId, :createdAt, :faultCount, :sensorGroupKey, :sensorCount, :ssid, :ssidUpdatedAt, :updatedAt) " +
-                   "ON CONFLICT (sensor_group_id) DO NOTHING", nativeQuery = true)
-    void insertSensorGroupIfNotExists(
-        @Param("sensorGroupId") String sensorGroupId,
-        @Param("createdAt") LocalDateTime createdAt,
-        @Param("faultCount") int faultCount,
-        @Param("sensorGroupKey") String sensorGroupKey,
-        @Param("sensorCount") int sensorCount,
-        @Param("ssid") String ssid,
-        @Param("ssidUpdatedAt") LocalDateTime ssidUpdatedAt,
-        @Param("updatedAt") LocalDateTime updatedAt);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<Sensor> findSensorByDeviceNumber(String deviceNumber);
+
     Optional<Sensor> findSensorById(Long id);
 }
