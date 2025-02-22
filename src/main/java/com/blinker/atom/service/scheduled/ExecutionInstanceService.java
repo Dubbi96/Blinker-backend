@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -128,6 +129,7 @@ public class ExecutionInstanceService {
                 .map(event -> CompletableFuture.supplyAsync(
                         () -> fetchExecutionLogDetails(event[0], event[1]), executorService))
                 .map(CompletableFuture::join)
+                .sorted(Comparator.comparing(SensorExecutionInstanceResponseDto::getCreatedAt).reversed())
                 .toList();
     }
 
