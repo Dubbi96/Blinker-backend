@@ -109,7 +109,6 @@ public class SensorLogSchedulerService {
     }
 
     private List<String> extractContentInstanceUri(String response) {
-        //extractContent(response);
         List<String> result = new ArrayList<>();
         Pattern pattern = Pattern.compile("/contentInstance-([a-zA-Z0-9]+)");
         Matcher matcher = pattern.matcher(response);
