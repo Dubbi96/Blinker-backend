@@ -49,6 +49,7 @@ public class SensorGroupResponseDto {
         private Long maleVolume;
         private Long systemVolume;
         private Long communicationInterval;
+        private String status;
         private Map<String,Boolean> faultInformation;
         private Long swVersion;
         private Long hwVersion;
@@ -81,6 +82,7 @@ public class SensorGroupResponseDto {
             this.maleVolume = sensor.getMaleVolume();
             this.systemVolume = sensor.getSystemVolume();
             this.communicationInterval = sensor.getCommunicationInterval();
+            this.status = sensor.getFaultInformation().containsValue(true) ? "오류" : "정상";
             this.faultInformation = sensor.getFaultInformation();
             this.swVersion = sensor.getSwVersion();
             this.hwVersion = sensor.getHwVersion();
