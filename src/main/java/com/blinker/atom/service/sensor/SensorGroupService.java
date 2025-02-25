@@ -42,12 +42,11 @@ public class SensorGroupService {
         List<SensorGroup> sensorGroups = sensorGroupRepository.findSensorGroupsWithSensorsByUserId(appUser.getId());
 
         return sensorGroups.stream()
-                .sorted(Comparator.comparing(SensorGroup::getOrder)) // SensorGroup의 order 기준 정렬
+                .sorted(Comparator.comparing(SensorGroup::getOrder))
                 .map(sensorGroup -> {
                     SensorGroupResponseDto dto = new SensorGroupResponseDto(sensorGroup);
 
                     List<SensorGroupResponseDto.SensorDto> sortedSensors = dto.getSensors().stream()
-                        // onlyFaulty가 true면 faultInformation이 true인 센서만 필터링
                         .filter(sensor -> !onlyFaulty || sensor.getFaultInformation().containsValue(true))
                         .sorted(Comparator.comparing(SensorGroupResponseDto.SensorDto::getGroupPositionNumber))
                         .toList();
