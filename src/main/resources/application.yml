@@ -19,6 +19,9 @@ spring:
       maxFileSize: 100GB
       maxRequestSize: 100GB
 
+kakao:
+  rest-api-key : a75e7e6394cc4b75c1f5545a4212fa7e
+
 thingplug:
   base:
     url: http://thingplugpf.sktiot.com:9000

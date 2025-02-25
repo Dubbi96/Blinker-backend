@@ -16,6 +16,7 @@ import java.util.stream.Collectors;
 public class SensorGroupResponseDto {
 
     private String sensorGroupId;
+    private Long order;
     private String groupKey;
     private Long sensorCount;
     private Long faultCount;
@@ -29,6 +30,7 @@ public class SensorGroupResponseDto {
         private Long sensorId;
         private String deviceNumber;
         private Long groupPositionNumber;
+        private String address;
         private Double deviceId;
         private Double longitude;
         private Double latitude;
@@ -92,11 +94,13 @@ public class SensorGroupResponseDto {
             this.groupPositionNumber = sensor.getGroupPositionNumber();
             this.lastlyModifiedWith = sensor.getLastlyModifiedWith();
             this.updatedAt = sensor.getUpdatedAt();
+            this.address = sensor.getAddress();
         }
     }
 
     public SensorGroupResponseDto(SensorGroup sensorGroup) {
         this.sensorGroupId = sensorGroup.getId();
+        this.order = sensorGroup.getOrder();
         this.groupKey = sensorGroup.getGroupKey();
         this.sensorCount = sensorGroup.getSensorCount();
         this.faultCount = sensorGroup.getFaultCount();

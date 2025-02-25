@@ -10,8 +10,7 @@ public class SensorDetailResponseDto {
     private Long sensorId;
     private String deviceNumber;
     private Long groupPositionNumber;
-    private Double latitude;
-    private Double longitude;
+    private String address;
     private LocalDateTime updatedAt;
     private String status;
     private String memo;
@@ -20,8 +19,7 @@ public class SensorDetailResponseDto {
         this.sensorId = sensor.getId();
         this.deviceNumber = sensor.getDeviceNumber();
         this.groupPositionNumber = sensor.getGroupPositionNumber();
-        this.latitude = sensor.getLatitude();
-        this.longitude = sensor.getLongitude();
+        this.address = sensor.getAddress();
         this.updatedAt = sensor.getUpdatedAt();
         this.status = status;
         this.memo = sensor.getMemo();

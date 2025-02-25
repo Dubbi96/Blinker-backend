@@ -3,8 +3,9 @@ package com.blinker.atom.service.thingplug;
 import com.blinker.atom.dto.thingplug.ContentInstanceRequestDto;
 import com.blinker.atom.dto.thingplug.ParsedSensorLogDto;
 import com.blinker.atom.util.EncodingUtil;
-import com.blinker.atom.util.HttpClientUtil;
+import com.blinker.atom.util.httpclientutil.HttpClientUtil;
 import com.blinker.atom.util.ParsingUtil;
+import com.blinker.atom.util.httpclientutil.ThingPlugHeaderProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -43,7 +44,7 @@ public class ThingPlugService {
         log.info("Fetching Content Instance list from URL: {}", listUrl);
 
         try {
-            String latestInstanceResponse = HttpClientUtil.get(listUrl, origin, uKey, requestId);
+            String latestInstanceResponse = HttpClientUtil.get(listUrl, new ThingPlugHeaderProvider(origin, uKey, requestId));
             log.debug("Content Instance List Response: {}", latestInstanceResponse);
 
             // Step 2: Extract and parse the <con> tag content
@@ -78,7 +79,7 @@ public class ThingPlugService {
 
     public List<String> fetchRemoteCSEIds() {
         String url = String.format("%s/%s/v1_0?fu=1&ty=16", baseUrl, appEui);
-        String response = HttpClientUtil.get(url, origin, uKey, requestId);
+        String response = HttpClientUtil.get(url, new ThingPlugHeaderProvider(origin, uKey, requestId));
 
         return extractRemoteCSEIds(response);
     }
@@ -98,18 +99,17 @@ public class ThingPlugService {
 
     public String createContentInstance(ContentInstanceRequestDto request) {
         String url = String.format("%s/%s/v1_0/remoteCSE-%s/container-%s", baseUrl, appEui, request.getRemoteCseId(), request.getContainerName());
-
-        // XML Body for contentInstance
+        String encodedContent = EncodingUtil.encodeToHex(request);
         String body = String.format(
             "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
             + "<m2m:cin xmlns:m2m=\"http://www.onem2m.org/xml/protocols\">"
             + "<cnf>application/json</cnf>"
             + "<con>%s</con>"
-            + "</m2m:cin>", EncodingUtil.encodeToHex(request));
+            + "</m2m:cin>", encodedContent);
 
         log.info("Creating contentInstance at URL: {}", url);
         log.info("Creating contentInstance: {}", body);
-        return HttpClientUtil.post(url, origin, uKey, requestId, body);
+        return HttpClientUtil.post(url, new ThingPlugHeaderProvider(origin, uKey, requestId), body);
     }
 
 }

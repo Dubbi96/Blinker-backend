@@ -6,10 +6,7 @@ import com.blinker.atom.service.scheduled.ExecutionInstanceService;
 import com.blinker.atom.service.scheduled.SensorLogSchedulerService;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -23,27 +20,35 @@ public class ScheduledServiceController {
 
     @PostMapping("/sensor-log/start")
     @Operation(summary = "보유한 모든 SensorGroup의 로그 수집", description = "⛔️ 멀티 쓰레드 환경에서 동작하므로 사용에 주의 요함")
-    public String sensorLogStartScheduler() {
+    public String sensorLogScheduler() {
         sensorLogSchedulerService.fetchAndSaveSensorLogs();
         return "Sensor Log 스케줄링이 시작";
     }
 
     @PostMapping("/sensor/start")
     @Operation(summary = "Sensor 정보 업데이트", description = "⛔️ 비동기 호출으로 사용에 주의 요함")
-    public String sensorStartScheduler() {
+    public String sensorScheduler() {
         sensorLogSchedulerService.updateSensorFromSensorLogs();
         return "Sensor 스케줄링 시작";
     }
 
     @PostMapping("/admin/start")
     @Operation(summary = "Admin 유저에게 모든 SensorGroup 할당", description = "⛔️ 비동기 호출으로 사용에 주의 요함")
-    public String adminSchedulerStartScheduler() {
+    public String adminSchedulerScheduler() {
         appUserSensorGroupService.updateAdminSensorGroups();
         return "ADMIN 유저 업데이트 스케줄링 시작";
     }
 
     @GetMapping("/sensor-execution-log/start")
+    @Operation(summary = "전체 환경에서 활용된 execution log detail 전부 조회", description = "확인용 API")
     public List<SensorExecutionInstanceResponseDto> sensorExecutionLogStartScheduler() {
         return executionInstanceService.fetchSensorExecutionLogs();
+    }
+
+    @PutMapping("/sensor-address/start")
+    @Operation(summary = "보유한 모든 Sensor의 주소지 업데이트", description = "⛔️ 멀티 쓰레드 환경에서 동작하므로 사용에 주의 요함")
+    public String sensorAddressUpdateScheduler() {
+        sensorLogSchedulerService.updateSensorAddress();
+        return "Sensor 주소정보 업데이트 시작";
     }
 }

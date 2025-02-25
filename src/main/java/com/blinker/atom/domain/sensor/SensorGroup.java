@@ -32,6 +32,9 @@ public class SensorGroup {
     @Column(name = "ssid")
     private String ssid;
 
+    @Column(name = "display_order")
+    private Long order;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     @Temporal(TemporalType.TIMESTAMP)
     private LocalDateTime createdAt;
@@ -46,6 +49,10 @@ public class SensorGroup {
 
     @OneToMany(mappedBy = "sensorGroup", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Sensor> sensors;
+
+    public void updateOrder(Long order) {
+        this.order = order;
+    }
 
     @PrePersist
     protected void onCreate() {

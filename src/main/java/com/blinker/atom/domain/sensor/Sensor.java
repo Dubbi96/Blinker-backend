@@ -127,6 +127,9 @@ public class Sensor {
     @Column(name = "lastly_modified_with")
     private String lastlyModifiedWith;
 
+    @Column(name = "address")
+    private String address;
+
     @Column(name = "memo")
     private String memo;
 
@@ -143,5 +146,7 @@ public class Sensor {
         this.createdAt = LocalDateTime.now();
     }
 
-
+    public void updateAddress(String address) {
+        this.address = address;
+    }
 }

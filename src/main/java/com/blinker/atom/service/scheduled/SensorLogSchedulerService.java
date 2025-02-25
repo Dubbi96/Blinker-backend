@@ -3,9 +3,11 @@ package com.blinker.atom.service.scheduled;
 import com.blinker.atom.config.error.CustomException;
 import com.blinker.atom.domain.sensor.*;
 import com.blinker.atom.dto.thingplug.ParsedSensorLogDto;
-import com.blinker.atom.util.HttpClientUtil;
+import com.blinker.atom.util.httpclientutil.HttpClientUtil;
 import com.blinker.atom.util.ParsingUtil;
 import com.blinker.atom.util.XmlUtil;
+import com.blinker.atom.util.httpclientutil.KakaoHeaderProvider;
+import com.blinker.atom.util.httpclientutil.ThingPlugHeaderProvider;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -15,6 +17,8 @@ import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.configurationprocessor.json.JSONArray;
+import org.springframework.boot.configurationprocessor.json.JSONObject;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -62,6 +66,10 @@ public class SensorLogSchedulerService {
     @Value("${thingplug.headers.x-m2m-ri}")
     private String requestId;
 
+    @Value("${kakao.rest-api-key}")
+    private String kakaoRestApiKey;
+
+    private static final String KAKAO_API_URL = "https://dapi.kakao.com/v2/local/geo/coord2address.json?x=%s&y=%s";
     private final ExecutorService executorService = Executors.newFixedThreadPool(10);
 
     /**
@@ -84,7 +92,7 @@ public class SensorLogSchedulerService {
      * 	*/
     @Transactional(readOnly = true)
     public void fetchAndSaveSensorLogs() {
-        log.info("🔹 Sensor Log 스케줄러 실행 중...");
+        log.info("🔹 Sensor Log 스케줄러 실행...");
         // 모든 sensor_group 조회
         List<SensorGroup> sensorGroups = sensorGroupRepository.findAll();
 
@@ -93,7 +101,7 @@ public class SensorLogSchedulerService {
             String url = String.format("%s/%s/v1_0/remoteCSE-%s/container-LoRa?fu=1&ty=4",
                     baseUrl, appEui, sensorGroupId);
 
-            String response = HttpClientUtil.get(url, origin, uKey, sensorGroupId);
+            String response = HttpClientUtil.get(url, new ThingPlugHeaderProvider(origin, uKey, requestId));
             log.info("Fetching Sensor Log at URL: {}", response);
             if (response == null || response.isEmpty()) {
                 log.warn("API 응답이 없음. SensorGroup: {}", sensorGroupId);
@@ -144,7 +152,7 @@ public class SensorLogSchedulerService {
         String contentInstanceUrl = String.format("%s/%s/v1_0/remoteCSE-%s/container-LoRa/contentInstance-%s",
                 baseUrl, appEui, group.getId(), eventCode);
         try {
-            String contentInstanceResponse = HttpClientUtil.get(contentInstanceUrl, origin, uKey, requestId);
+            String contentInstanceResponse = HttpClientUtil.get(contentInstanceUrl, new ThingPlugHeaderProvider(origin, uKey, requestId));
             String jsonEventDetail = XmlUtil.convertXmlToJson(contentInstanceResponse);
 
             SensorGroup existingGroup = sensorGroupRepository.findById(group.getId()).orElse(null);
@@ -372,6 +380,72 @@ public class SensorLogSchedulerService {
                 .updatedAt(LocalDateTime.now())
                 .build();
         sensorRepository.save(updatedSensor);
+    }
+
+    /**모든 센서의 위치 정보를 변환하여 string 값으로 추가*/
+    @Transactional(readOnly = true)
+    public void updateSensorAddress(){
+        log.info("Sensor 위치 정보 조회 스케줄러 실행...");
+
+        // 모든 센서 조회
+        List<Sensor> sensors = sensorRepository.findAll();
+
+        List<CompletableFuture<Void>> futures = sensors.stream()
+            .map(sensor -> CompletableFuture.runAsync(() -> fetchAndLogLocation(sensor), executorService))
+            .toList();
+
+        // 모든 비동기 작업 완료 대기
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+    }
+
+    @Transactional
+    protected void fetchAndLogLocation(Sensor sensor) {
+        double longitude = sensor.getLongitude();
+        double latitude = sensor.getLatitude();
+
+        // 좌표 값이 0.0, 0.0이면 조회하지 않음
+        if (longitude == 0.0 && latitude == 0.0) {
+            return;
+        }
+
+        String url = String.format(KAKAO_API_URL, longitude, latitude);
+
+        // Kakao HeaderProvider 사용
+        String response = HttpClientUtil.get(url, new KakaoHeaderProvider("KakaoAK "+kakaoRestApiKey));
+
+        if (response == null || response.isEmpty()) {
+            return;
+        }
+        // API 응답에서 주소 추출
+        String address = extractAddressFromResponse(response);
+        updateSensorAddressInDB(sensor, address);
+    }
+
+    @Transactional
+    protected void updateSensorAddressInDB(Sensor sensor, String address) {
+        sensor.updateAddress(address);
+        sensorRepository.save(sensor);
+    }
+
+
+    /**kakao 응답에서 첫번째 주소지 파싱*/
+    private String extractAddressFromResponse(String response) {
+        try {
+            JSONObject json = new JSONObject(response);
+            JSONArray documents = json.getJSONArray("documents");
+
+            if (documents.length() == 0) {
+                return "주소 정보 없음";
+            }
+
+            // 첫 번째 document에서 address.address_name 값 가져오기
+            JSONObject firstDocument = documents.getJSONObject(0);
+            JSONObject address = firstDocument.getJSONObject("address");
+
+            return address.getString("address_name");
+        } catch (Exception e) {
+            return "주소 정보 없음";
+        }
     }
 
     @PreDestroy

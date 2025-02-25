@@ -1,8 +1,9 @@
 package com.blinker.atom.service.scheduled;
 
 import com.blinker.atom.dto.sensor.SensorExecutionInstanceResponseDto;
-import com.blinker.atom.util.HttpClientUtil;
+import com.blinker.atom.util.httpclientutil.HttpClientUtil;
 import com.blinker.atom.util.XmlUtil;
+import com.blinker.atom.util.httpclientutil.ThingPlugHeaderProvider;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -95,7 +96,7 @@ public class ExecutionInstanceService {
 
     public List<SensorExecutionInstanceResponseDto> fetchSensorExecutionLogs() {
         String url = String.format("%s/%s/v1_0?fu=1&ty=8", baseUrl, appEui);
-        String response = HttpClientUtil.get(url, origin, uKey, requestId);
+        String response = HttpClientUtil.get(url, new ThingPlugHeaderProvider(origin, uKey, requestId));
 
         log.info("Fetching Sensor Log at URL: {}", url);
 
@@ -139,7 +140,7 @@ public class ExecutionInstanceService {
                 baseUrl, appEui, mgmtCmdId, execInstanceId);
 
         try {
-            String contentInstanceResponse = HttpClientUtil.get(executionInstanceUrl, origin, uKey, requestId);
+            String contentInstanceResponse = HttpClientUtil.get(executionInstanceUrl, new ThingPlugHeaderProvider(origin, uKey, requestId));
             String jsonEventDetail = XmlUtil.convertXmlToJson(contentInstanceResponse);
 
             JsonNode jsonNode = objectMapper.readTree(jsonEventDetail);
