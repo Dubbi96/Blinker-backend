@@ -41,7 +41,7 @@ public class SensorGroupService {
         List<SensorGroup> sensorGroups = sensorGroupRepository.findSensorGroupsWithSensorsByUserId(appUser.getId());
 
         return sensorGroups.stream()
-                .sorted(Comparator.comparing(SensorGroup::getId)) //SensorGroup의 id 순서로 정렬
+                .sorted(Comparator.comparing(SensorGroup::getOrder)) //SensorGroup의 id 순서로 정렬
                 .map(sensorGroup -> {
                     // SensorDto 내부에서 groupPositionNumber 기준으로 정렬
                     SensorGroupResponseDto dto = new SensorGroupResponseDto(sensorGroup);

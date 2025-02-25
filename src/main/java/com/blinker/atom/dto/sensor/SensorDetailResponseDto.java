@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 
 @Data
 public class SensorDetailResponseDto {
-    private Long sensorId;
+    private String sensorGroupId;
     private String deviceNumber;
     private Long groupPositionNumber;
     private String address;
@@ -16,7 +16,7 @@ public class SensorDetailResponseDto {
     private String memo;
 
     public SensorDetailResponseDto(Sensor sensor, String status) {
-        this.sensorId = sensor.getId();
+        this.sensorGroupId = sensor.getSensorGroup().getId();
         this.deviceNumber = sensor.getDeviceNumber();
         this.groupPositionNumber = sensor.getGroupPositionNumber();
         this.address = sensor.getAddress();
