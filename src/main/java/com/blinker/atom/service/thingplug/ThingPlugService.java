@@ -98,7 +98,7 @@ public class ThingPlugService {
     }
 
     public String createContentInstance(ContentInstanceRequestDto request) {
-        String url = String.format("%s/%s/v1_0/remoteCSE-%s/container-%s", baseUrl, appEui, request.getRemoteCseId(), request.getContainerName());
+        String url = String.format("%s/%s/v1_0/mgmtCmd-%s_extDevMgmt", baseUrl, appEui, request.getRemoteCseId());
         String encodedContent = EncodingUtil.encodeToHex(request);
         String body = String.format(
             "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
@@ -109,7 +109,7 @@ public class ThingPlugService {
 
         log.info("Creating contentInstance at URL: {}", url);
         log.info("Creating contentInstance: {}", body);
-        return HttpClientUtil.post(url, new ThingPlugHeaderProvider(origin, uKey, requestId), body);
+        return HttpClientUtil.put(url, new ThingPlugHeaderProvider(origin, uKey, requestId), body);
     }
 
 }

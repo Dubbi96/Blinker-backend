@@ -8,7 +8,6 @@ import java.util.Map;
 @Data
 public class ContentInstanceRequestDto {
     private String remoteCseId;
-    private String containerName;
     private Content content;
 
     @Getter

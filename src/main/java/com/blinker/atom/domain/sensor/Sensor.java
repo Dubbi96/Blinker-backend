@@ -102,6 +102,9 @@ public class Sensor {
     @Column(name = "communication_interval")
     private Long communicationInterval;
 
+    @Column(name = "server_time")
+    private LocalDateTime serverTime;
+
     @Column(name = "fault_information", columnDefinition = "jsonb")
     @Type(JsonBinaryType.class)
     private Map<String,Boolean> faultInformation;

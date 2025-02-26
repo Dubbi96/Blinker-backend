@@ -26,8 +26,10 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpClientErrorException;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -377,6 +379,7 @@ public class SensorLogSchedulerService {
                 .latitude(Double.parseDouble(!sensorLogLatitudeAndLongitudeAsString.isEmpty() ? sensorLogLatitudeAndLongitudeAsString.get(0) : "0"))
                 .longitude(Double.parseDouble(!sensorLogLatitudeAndLongitudeAsString.isEmpty() ? sensorLogLatitudeAndLongitudeAsString.get(1) : "0"))
                 .lastlyModifiedWith(sensorLogContentInstance)
+                .serverTime(LocalDateTime.ofInstant(Instant.ofEpochSecond(parsedSensorLog.getServerTime()), ZoneId.systemDefault()))
                 .updatedAt(LocalDateTime.now())
                 .build();
         sensorRepository.save(updatedSensor);

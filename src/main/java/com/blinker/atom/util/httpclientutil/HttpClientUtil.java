@@ -1,6 +1,5 @@
 package com.blinker.atom.util.httpclientutil;
 
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -24,6 +23,15 @@ public class HttpClientUtil {
         HttpEntity<String> entity = new HttpEntity<>(body, headers);
 
         ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
+        return response.getBody();
+    }
+
+    public static String put(String url, HttpHeaderProvider headerProvider, String body) {
+        RestTemplate restTemplate = new RestTemplate();
+        HttpHeaders headers = headerProvider.createHeaders();
+        HttpEntity<String> entity = new HttpEntity<>(body, headers);
+
+        ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.PUT, entity, String.class);
         return response.getBody();
     }
 }

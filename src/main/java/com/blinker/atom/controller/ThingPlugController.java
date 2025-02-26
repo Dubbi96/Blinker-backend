@@ -40,8 +40,8 @@ public class ThingPlugController {
     @PostMapping("/contentInstance")
     public String createContentInstance(
             @RequestBody ContentInstanceRequestDto content) {
-        log.info("Received request to create contentInstance: remoteCseId={}, containerName={}, content={}",
-                content.getRemoteCseId(), content.getContainerName(), content.getContent());
+        log.info("Received request to create contentInstance: remoteCseId={}, content={}",
+                content.getRemoteCseId(), content.getContent());
         return thingPlugService.createContentInstance(content);
     }
 }
