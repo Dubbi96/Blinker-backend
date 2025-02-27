@@ -14,6 +14,7 @@ public class ThingPlugHeaderProvider implements HttpHeaderProvider {
     public HttpHeaders createHeaders() {
         HttpHeaders headers = new HttpHeaders();
         headers.set("Accept", "application/xml");
+        headers.set("Content-Type", "application/vnd.onem2m-res+xml");
         headers.set("X-M2M-Origin", origin);
         headers.set("X-M2M-RI", requestId);
         headers.set("uKey", uKey);

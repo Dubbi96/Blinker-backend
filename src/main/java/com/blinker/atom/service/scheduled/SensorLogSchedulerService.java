@@ -379,10 +379,21 @@ public class SensorLogSchedulerService {
                 .latitude(Double.parseDouble(!sensorLogLatitudeAndLongitudeAsString.isEmpty() ? sensorLogLatitudeAndLongitudeAsString.get(0) : "0"))
                 .longitude(Double.parseDouble(!sensorLogLatitudeAndLongitudeAsString.isEmpty() ? sensorLogLatitudeAndLongitudeAsString.get(1) : "0"))
                 .lastlyModifiedWith(sensorLogContentInstance)
-                .serverTime(LocalDateTime.ofInstant(Instant.ofEpochSecond(parsedSensorLog.getServerTime()), ZoneId.systemDefault()))
+                .serverTime(decodeServerTime(parsedSensorLog.getServerTime()))
                 .updatedAt(LocalDateTime.now())
                 .build();
         sensorRepository.save(updatedSensor);
+    }
+
+    public static LocalDateTime decodeServerTime(long serverTime) {
+        int year = (int) (serverTime / 1_0000_0000L);  // YY
+        int month = (int) ((serverTime / 1_0000_000L) % 100); // MM
+        int day = (int) ((serverTime / 1_0000L) % 100); // DD
+        int hour = (int) ((serverTime / 1_00L) % 100); // HH
+        int minute = (int) (serverTime % 100); // mm
+        year += 2000;
+
+        return LocalDateTime.of(year, month, day, hour, minute);
     }
 
     /**모든 센서의 위치 정보를 변환하여 string 값으로 추가*/

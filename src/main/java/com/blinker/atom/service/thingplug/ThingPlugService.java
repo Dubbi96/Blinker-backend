@@ -1,6 +1,6 @@
 package com.blinker.atom.service.thingplug;
 
-import com.blinker.atom.dto.thingplug.ContentInstanceRequestDto;
+import com.blinker.atom.dto.thingplug.SensorUpdateRequestDto;
 import com.blinker.atom.dto.thingplug.ParsedSensorLogDto;
 import com.blinker.atom.util.EncodingUtil;
 import com.blinker.atom.util.httpclientutil.HttpClientUtil;
@@ -15,6 +15,7 @@ import org.springframework.web.client.HttpClientErrorException;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -37,6 +38,25 @@ public class ThingPlugService {
 
     @Value("${thingplug.headers.x-m2m-ri}")
     private String requestId;
+
+    // 각 신호기(DeviceId)별 sequenceNumber 저장 (Thread-Safe)
+    private final ConcurrentHashMap<Integer, Integer> sequenceNumbers = new ConcurrentHashMap<>();
+
+    /**
+     * 주어진 deviceId에 대한 sequenceNumber 증가 및 반환
+     */
+    public synchronized int getNextSequenceNumber(int deviceId) {
+        // 현재 sequenceNumber 가져오기 (기본값 0)
+        int currentSequence = sequenceNumbers.getOrDefault(deviceId, 0);
+
+        // 0~255 범위 유지
+        int nextSequence = (currentSequence + 1) % 256;
+
+        // 업데이트 후 저장
+        sequenceNumbers.put(deviceId, nextSequence);
+
+        return nextSequence;
+    }
 
     public ParsedSensorLogDto getLatestContent(String remoteCseId) {
         // Step 1: Fetch Content Instance
@@ -97,15 +117,17 @@ public class ThingPlugService {
         return remoteCSEIds;
     }
 
-    public String createContentInstance(ContentInstanceRequestDto request) {
-        String url = String.format("%s/%s/v1_0/mgmtCmd-%s_extDevMgmt", baseUrl, appEui, request.getRemoteCseId());
-        String encodedContent = EncodingUtil.encodeToHex(request);
+    public String createContentInstance(String sensorGroupId, SensorUpdateRequestDto request) {
+        String url = String.format("%s/%s/v1_0/mgmtCmd-%s_extDevMgmt", baseUrl, appEui, sensorGroupId);
+        int sequenceNumber = getNextSequenceNumber(request.getDeviceId());
+        String encodedContent = EncodingUtil.encodeToHex(request,83 , sequenceNumber);
         String body = String.format(
-            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
-            + "<m2m:cin xmlns:m2m=\"http://www.onem2m.org/xml/protocols\">"
-            + "<cnf>application/json</cnf>"
-            + "<con>%s</con>"
-            + "</m2m:cin>", encodedContent);
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+        + "<m2m:mgc xmlns:m2m=\"http://www.onem2m.org/xml/protocols\" "
+        + "xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">"
+        + "<exe>true</exe>"
+        + "<exra>%s</exra>"
+        + "</m2m:mgc>", encodedContent);
 
         log.info("Creating contentInstance at URL: {}", url);
         log.info("Creating contentInstance: {}", body);

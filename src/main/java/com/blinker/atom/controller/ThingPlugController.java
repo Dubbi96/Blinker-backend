@@ -1,6 +1,5 @@
 package com.blinker.atom.controller;
 
-import com.blinker.atom.dto.thingplug.ContentInstanceRequestDto;
 import com.blinker.atom.dto.thingplug.ParsedSensorLogDto;
 import com.blinker.atom.service.thingplug.ThingPlugService;
 import lombok.RequiredArgsConstructor;
@@ -37,11 +36,4 @@ public class ThingPlugController {
         return thingPlugService.fetchRemoteCSEIds();
     }
 
-    @PostMapping("/contentInstance")
-    public String createContentInstance(
-            @RequestBody ContentInstanceRequestDto content) {
-        log.info("Received request to create contentInstance: remoteCseId={}, content={}",
-                content.getRemoteCseId(), content.getContent());
-        return thingPlugService.createContentInstance(content);
-    }
 }

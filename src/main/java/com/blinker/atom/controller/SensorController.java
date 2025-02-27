@@ -6,11 +6,15 @@ import com.blinker.atom.dto.sensor.SensorDetailResponseDto;
 import com.blinker.atom.dto.sensor.SensorGroupResponseDto;
 import com.blinker.atom.dto.sensor.SensorLogResponseDto;
 import com.blinker.atom.dto.sensor.UnregisteredSensorGroupResponseDto;
+import com.blinker.atom.dto.thingplug.SensorUpdateRequestDto;
 import com.blinker.atom.service.sensor.SensorGroupService;
 import com.blinker.atom.service.sensor.SensorService;
+import com.blinker.atom.service.thingplug.ThingPlugService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.repository.query.Param;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -23,6 +27,7 @@ public class SensorController {
 
     private final SensorService sensorService;
     private final SensorGroupService sensorGroupService;
+    private final ThingPlugService thingPlugService;
 
     @GetMapping("/groups")
     @Operation(summary = "사용자의 모든 센서 조회",description = "<b>@LoginAppUser</b> 토큰에서 가져온 AppUser가 보유한 SensorGroup의 모든 정보 조회 <br><b>🗓️ 장애센서 필터: </b><br> 1. onlyFaulty = true로 보낸다면 장애 센서만 조회<br> 2. onlyFaulty = false혹은 보내지 않는다면 전체 조회 <br> <b>📌 정렬 기준:</b> <br> 1. SensorGroup의 Order순 <br> 2. 센서 groupPositionNumber 오름차순 <br> ")
@@ -60,4 +65,15 @@ public class SensorController {
         return sensorService.getSensorDetailBySensorId(sensorId, appUser);
     }
 
+    @PatchMapping("/{sensorGroupId}")
+    @Operation(summary = "단일 sensor 정보 업데이트 요청", description = "<b>단일 sensor 정보 업데이트 요청</b>")
+    public String createContentInstance(
+            @Parameter(example = "0000102140ca63fffe1df1ce")
+            @PathVariable("sensorGroupId") String sensorGroupId,
+            @RequestBody SensorUpdateRequestDto content
+    ) {
+        log.info("Received request to create contentInstance: content={}",
+                content);
+        return thingPlugService.createContentInstance(sensorGroupId, content);
+    }
 }

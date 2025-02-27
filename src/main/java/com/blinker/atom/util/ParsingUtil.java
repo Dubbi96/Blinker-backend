@@ -59,12 +59,12 @@ public class ParsingUtil {
             data.setCommInterval(Integer.parseInt(message.substring(index, index + 2), 16));
             index += 2;
 
-            int faultInfo = Integer.parseInt(message.substring(index, index + 2), 16);
+            int faultInfo = Integer.parseInt(message.substring(index, index + 4), 16);
             data.setFaultInformation(parseFaultInformation(faultInfo));
-            index += 2;
-
-            data.setSwVersion(Integer.parseInt(message.substring(index, index + 4), 16));
             index += 4;
+
+            data.setSwVersion(Integer.parseInt(message.substring(index, index + 2), 16));
+            index += 2;
 
             data.setHwVersion(Integer.parseInt(message.substring(index, index + 2), 16));
             index += 2;

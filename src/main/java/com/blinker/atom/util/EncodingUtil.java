@@ -1,23 +1,24 @@
 package com.blinker.atom.util;
 
-import com.blinker.atom.dto.thingplug.ContentInstanceRequestDto;
+import com.blinker.atom.dto.thingplug.SensorUpdateRequestDto;
 import lombok.extern.slf4j.Slf4j;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 
 @Slf4j
 public class EncodingUtil {
 
-    public static String encodeToHex(ContentInstanceRequestDto contentInstanceRequestDto) {
-        if (contentInstanceRequestDto == null || contentInstanceRequestDto.getContent() == null) {
+    public static String encodeToHex(SensorUpdateRequestDto content, Integer cmd, int sequenceNumber) {
+        if (content == null) {
             throw new IllegalArgumentException("Invalid request: content is null");
         }
 
-        ContentInstanceRequestDto.Content content = contentInstanceRequestDto.getContent();
         StringBuilder hexString = new StringBuilder();
 
         // 1. CMD (2자리)
-        hexString.append(String.format("%02x", Integer.parseInt(content.getCmd(), 16)));
+        hexString.append(String.format("%02x", cmd));
 
         // 2. Device Number (8자리)
         hexString.append(content.getDeviceNumber());
@@ -37,11 +38,11 @@ public class EncodingUtil {
         // 7. Communication Signal Threshold (2자리)
         hexString.append(String.format("%02x", content.getCommSignalThreshold()));
 
-        // 8. Wireless Strength (2자리)
+        // 8. Wireless 235 Strength (2자리)
         hexString.append(String.format("%02x", content.getWireless235Strength()));
 
         // 9. Server Time (8자리)
-        String serverTimeHex = String.format("%08x", (System.currentTimeMillis() / 1000) & 0xFFFFFFFFL);
+        String serverTimeHex = encodeServerTime();
         hexString.append(serverTimeHex);
 
         // 10. Device Settings (2자리)
@@ -57,27 +58,25 @@ public class EncodingUtil {
         hexString.append(silentSettingsHex);
 
         // 13. Communication Interval (2자리)
-        hexString.append(String.format("%02x", content.getCommInterval()));
+        hexString.append(String.format("%02x", content.getCommunicationInterval()));
 
-        // 14. Fault Information (2자리)
-        String faultInfoHex = encodeFaultInformation(content.getFaultInformation());
-        hexString.append(faultInfoHex);
+        // 14. Fault Information (4자리)
+        hexString.append("0000");
 
         // 15. SW Version (2자리)
-        String swVersionHex = encodeBigEndian(content.getSwVersion(), 2);
-        hexString.append(swVersionHex);
+        hexString.append(String.format("%02x", content.getSwVersion()));
 
         // 16. HW Version (2자리)
         hexString.append(String.format("%02x", content.getHwVersion()));
 
         // 17. Button Count (2자리)
-        hexString.append(String.format("%02x", content.getButtonCount()));
+        hexString.append("00");
 
         // 18. Position Guide Count (2자리)
-        hexString.append(String.format("%02x", content.getPositionGuideCount()));
+        hexString.append("00");
 
         // 19. Signal Guide Count (2자리)
-        hexString.append(String.format("%02x", content.getSignalGuideCount()));
+        hexString.append("00");
 
         // 20. Group Number (8자리 - Little-Endian 처리)
         hexString.append(content.getGroupNumber());
@@ -88,41 +87,69 @@ public class EncodingUtil {
         // 22. Group Position Number (2자리)
         hexString.append(String.format("%02x", content.getGroupPositionNumber()));
 
-        // 23. Data Type (2자리)
-        hexString.append(String.format("%02x", content.getDataType()));
+        // 23. padding (16 자리)
+        hexString.append("0000000000000000");
 
-        // 24. Sequence Number (2자리)
-        hexString.append(String.format("%02x", content.getSequenceNumber()));
+        // 24. Data Type (2자리)
+        hexString.append("00");
 
-        int paddingLength = 102 - hexString.length() - 2;
-        if (paddingLength < 0) {
-            throw new IllegalStateException("Encoded data exceeds 102 characters");
-        }
-
-        String padding = "0".repeat(paddingLength);
-        hexString.append(padding);
-        log.debug("Added Padding: {}", padding);
-
-        String checksum = calculateChecksum(hexString.toString());
-        hexString.append(checksum);
-        log.debug("Encoded Checksum: {}", checksum);
+        // 25. Sequence Number (2자리)
+        hexString.append(String.format("%02x", sequenceNumber));
 
         if (hexString.length() != 102) {
+            System.out.println(hexString);
             throw new IllegalStateException("Final encoded data length is not 102: " + hexString.length());
         }
 
-        return hexString.toString().toLowerCase();
+        return hexString.toString().toUpperCase();
     }
 
-    private static String encodeDeviceSettings(String settings) {
+     public static String encodeServerTime() {
+        // 현재 시간 가져오기
+        LocalDateTime now = LocalDateTime.now();
+
+        // 날짜/시간을 YYMMDDHHmm 포맷으로 변환
+        String formattedTime = now.format(DateTimeFormatter.ofPattern("yyMMddHHmm"));
+
+        // BCD(Binary Coded Decimal) 변환을 위한 16진수 변환
+        long bcdTime = Long.parseLong(formattedTime);
+
+        // 8자리 16진수 변환
+         return String.format("%08X", bcdTime);
+    }
+
+    private static String encodeDeviceSettings(Map<String, String> deviceSettings) {
+        if (deviceSettings == null || deviceSettings.isEmpty()) {
+            return "00"; // 기본값 (설정 없음)
+        }
+
         int deviceSettingValue = 0;
-        if (settings.contains("Female")) deviceSettingValue |= 1;
-        if (settings.contains("Bird")) deviceSettingValue |= 2;
-        if (settings.contains("Intersection")) deviceSettingValue |= 4;
-        if (settings.contains("Close Proximity")) deviceSettingValue |= 8;
-        if (settings.contains("Single Proximity")) deviceSettingValue |= 16;
-        if (settings.contains("Configured")) deviceSettingValue |= 32;
-        if (settings.contains("Female Priority Broadcast")) deviceSettingValue |= 64;
+
+        // "Proximity" 설정 (일반지주 연산상 없음)
+        String proximity = deviceSettings.get("Proximity");
+        if ("Close Proximity".equals(proximity)) deviceSettingValue |= 8;
+        if ("Single Proximity".equals(proximity)) deviceSettingValue |= 16;
+
+        // "Configuration" 설정 (미설정 연산상 없음)
+        String configuration = deviceSettings.get("Configuration");
+        if ("Configured".equals(configuration)) deviceSettingValue |= 32;
+
+        // "Priority" 설정 (남자 우선 방송 연산상 없음)
+        String priority = deviceSettings.get("Priority");
+        if ("Female Priority Broadcast".equals(priority)) deviceSettingValue |= 64;
+
+        // "Sound" 설정 (새 연산상 없음)
+        String sound = deviceSettings.get("Sound");
+        if ("Cricket".equals(sound)) deviceSettingValue |= 2;
+
+        // "Crossroad" 설정 (단일로 연산상 없음)
+        String crossroad = deviceSettings.get("Crossroad");
+        if ("Intersection".equals(crossroad)) deviceSettingValue |= 4;
+
+        // "Gender" 설정 (남자 음성 연산상 없음)
+        String gender = deviceSettings.get("Gender");
+        if ("Female".equals(gender)) deviceSettingValue |= 1;
+
         return String.format("%02x", deviceSettingValue);
     }
 
@@ -149,33 +176,6 @@ public class EncodingUtil {
                 silentSettings.getOrDefault("Female Mute 2", 0),
                 silentSettings.getOrDefault("Male Mute 1", 0),
                 silentSettings.getOrDefault("Male Mute 2", 0));
-    }
-
-    private static String encodeFaultInformation(String faultInformation) {
-        int faultValue = 0;
-        if (faultInformation.contains("Front Cover Open")) faultValue |= 1;
-        if (faultInformation.contains("235.3MHz Receiver Fault")) faultValue |= 2;
-        if (faultInformation.contains("358.5MHz Receiver Fault")) faultValue |= 4;
-        if (faultInformation.contains("User Button Fault")) faultValue |= 8;
-        if (faultInformation.contains("Speaker Fault")) faultValue |= 16;
-        if (faultInformation.contains("Signal Light Residual Fault")) faultValue |= 32;
-        return String.format("%02x", faultValue);
-    }
-
-    private static String calculateChecksum(String hexData) {
-        int sum = 0;
-        for (int i = 0; i < hexData.length(); i += 2) {
-            sum += Integer.parseInt(hexData.substring(i, i + 2), 16);
-        }
-        return String.format("%02x", sum & 0xFF);
-    }
-
-    private static String encodeBigEndian(int value, int byteLength) {
-        StringBuilder result = new StringBuilder();
-        for (int i = (byteLength - 1) * 8; i >= 0; i -= 8) {
-            result.append(String.format("%02x", (value >> i) & 0xFF));
-        }
-        return result.toString();
     }
 
 }
