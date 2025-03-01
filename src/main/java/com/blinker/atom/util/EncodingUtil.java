@@ -27,16 +27,16 @@ public class EncodingUtil {
         hexString.append(String.format("%02x", content.getDeviceId()));
 
         // 4. Signal Strength (2자리)
-        hexString.append(String.format("%02x", content.getSignalStrength()));
+        hexString.append(String.format("%02x", content.getPositionSignalStrength()));
 
         // 5. Signal Threshold (2자리)
-        hexString.append(String.format("%02x", content.getSignalThreshold()));
+        hexString.append(String.format("%02x", content.getPositionSignalThreshold()));
 
         // 6. Communication Signal Strength (2자리)
-        hexString.append(String.format("%02x", content.getCommSignalStrength()));
+        hexString.append(String.format("%02x", content.getCommunicationSignalStrength()));
 
         // 7. Communication Signal Threshold (2자리)
-        hexString.append(String.format("%02x", content.getCommSignalThreshold()));
+        hexString.append(String.format("%02x", content.getCommunicationSignalThreshold()));
 
         // 8. Wireless 235 Strength (2자리)
         hexString.append(String.format("%02x", content.getWireless235Strength()));
@@ -50,11 +50,11 @@ public class EncodingUtil {
         hexString.append(deviceSettingsHex);
 
         // 11. Volume Settings (14자리)
-        String volumeSettingsHex = encodeVolumeSettings(content.getVolumeSettings());
+        String volumeSettingsHex = encodeVolumeSettings(content);
         hexString.append(volumeSettingsHex);
 
         // 12. Silent Settings (8자리)
-        String silentSettingsHex = encodeSilentSettings(content.getSilentSettings());
+        String silentSettingsHex = encodeSilentSettings(content);
         hexString.append(silentSettingsHex);
 
         // 13. Communication Interval (2자리)
@@ -153,29 +153,25 @@ public class EncodingUtil {
         return String.format("%02x", deviceSettingValue);
     }
 
-    private static String encodeVolumeSettings(Map<String, Integer> volumeSettings) {
-        if (volumeSettings == null || volumeSettings.isEmpty()) {
-            return "00000000000000";
-        }
+    private static String encodeVolumeSettings(SensorUpdateRequestDto content) {
         return String.format("%02x%02x%02x%02x%02x%02x%02x",
-                volumeSettings.getOrDefault("Bird Volume", 0),
-                volumeSettings.getOrDefault("Cricket Volume", 0),
-                volumeSettings.getOrDefault("Dingdong Volume", 0),
-                volumeSettings.getOrDefault("Female Volume", 0),
-                volumeSettings.getOrDefault("Male Volume", 0),
-                volumeSettings.getOrDefault("Minuet Volume", 0),
-                volumeSettings.getOrDefault("System Volume", 0));
+                content.getBirdVolume() != null ? content.getBirdVolume() : 0,
+                content.getCricketVolume() != null ? content.getCricketVolume() : 0,
+                content.getDingdongVolume() != null ? content.getDingdongVolume() : 0,
+                content.getFemaleVolume() != null ? content.getFemaleVolume() : 0,
+                content.getMaleVolume() != null ? content.getMaleVolume() : 0,
+                content.getMinuetVolume() != null ? content.getMinuetVolume() : 0,
+                content.getSystemVolume() != null ? content.getSystemVolume() : 0
+        );
     }
 
-    private static String encodeSilentSettings(Map<String, Integer> silentSettings) {
-        if (silentSettings == null || silentSettings.isEmpty()) {
-            return "00000000";
-        }
+    private static String encodeSilentSettings(SensorUpdateRequestDto content) {
         return String.format("%02x%02x%02x%02x",
-                silentSettings.getOrDefault("Female Mute 1", 0),
-                silentSettings.getOrDefault("Female Mute 2", 0),
-                silentSettings.getOrDefault("Male Mute 1", 0),
-                silentSettings.getOrDefault("Male Mute 2", 0));
+                content.getFemaleMute1() != null ? content.getFemaleMute1() : 0,
+                content.getFemaleMute2() != null ? content.getFemaleMute2() : 0,
+                content.getMaleMute1() != null ? content.getMaleMute1() : 0,
+                content.getMaleMute2() != null ? content.getMaleMute2() : 0
+        );
     }
 
 }

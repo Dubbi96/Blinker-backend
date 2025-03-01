@@ -13,21 +13,39 @@ public class SensorUpdateRequestDto {
     @Schema(example = "1")
     private int deviceId;
     @Schema(example = "75")
-    private int signalStrength;
+    private int positionSignalStrength;
     @Schema(example = "50")
-    private int signalThreshold;
+    private int positionSignalThreshold;
     @Schema(example = "80")
-    private int commSignalStrength;
+    private int communicationSignalStrength;
     @Schema(example = "60")
-    private int commSignalThreshold;
+    private int communicationSignalThreshold;
     @Schema(example = "90")
     private int wireless235Strength;
     @Schema(example = "{\"Proximity\": \"General Proximity\", \"Configuration\": \"Configured\", \"Priority\": \"Female Priority Broadcast\", \"Sound\": \"Cricket\", \"Crossroad\": \"Single Road\", \"Gender\": \"Female\"}")
     private Map<String, String> deviceSettings;
-    @Schema(example = "{\"Bird Volume\": 9, \"Cricket Volume\": 9, \"Dingdong Volume\": 9, \"Female Volume\": 9, \"Male Volume\": 9, \"Minuet Volume\": 9, \"System Volume\": 9}")
-    private Map<String, Integer> volumeSettings;
-    @Schema(example = "{\"Female Mute 1\": 9, \"Female Mute 2\": 9, \"Male Mute 1\": 9, \"Male Mute 2\": 9}")
-    private Map<String, Integer> silentSettings;
+    @Schema(example = "9")
+    private Long femaleMute1;
+    @Schema(example = "9")
+    private Long femaleMute2;
+    @Schema(example = "9")
+    private Long maleMute1;
+    @Schema(example = "9")
+    private Long maleMute2;
+    @Schema(example = "9")
+    private Long birdVolume;
+    @Schema(example = "9")
+    private Long cricketVolume;
+    @Schema(example = "9")
+    private Long dingdongVolume;
+    @Schema(example = "9")
+    private Long femaleVolume;
+    @Schema(example = "9")
+    private Long minuetVolume;
+    @Schema(example = "9")
+    private Long maleVolume;
+    @Schema(example = "9")
+    private Long systemVolume;
     @Schema(example = "30")
     private int communicationInterval;
     @Schema(example = "1")

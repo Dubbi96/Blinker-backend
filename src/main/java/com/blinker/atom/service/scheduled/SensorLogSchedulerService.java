@@ -386,12 +386,30 @@ public class SensorLogSchedulerService {
     }
 
     public static LocalDateTime decodeServerTime(long serverTime) {
-        int year = (int) (serverTime / 1_0000_0000L);  // YY
-        int month = (int) ((serverTime / 1_0000_000L) % 100); // MM
-        int day = (int) ((serverTime / 1_0000L) % 100); // DD
-        int hour = (int) ((serverTime / 1_00L) % 100); // HH
-        int minute = (int) (serverTime % 100); // mm
+        // BCD에서 값 추출
+        if(serverTime == 0) return null;
+        int year = (int) ((serverTime >> 32) & 0xFF);  // YY
+        int month = (int) ((serverTime >> 24) & 0xFF); // MM
+        int day = (int) ((serverTime >> 16) & 0xFF);   // DD
+        int hour = (int) ((serverTime >> 8) & 0xFF);   // HH
+        int minute = (int) (serverTime & 0xFF);        // mm
+
+        // 연도 변환 (2025년이면 25 → 2025)
         year += 2000;
+
+        // 예외 처리: 월, 일, 시간, 분 값이 유효한 범위인지 확인
+        if (month < 1 || month > 12) {
+            throw new IllegalArgumentException("Invalid month extracted from serverTime: " + month);
+        }
+        if (day < 1 || day > 31) {
+            throw new IllegalArgumentException("Invalid day extracted from serverTime: " + day);
+        }
+        if (hour > 23) {
+            throw new IllegalArgumentException("Invalid hour extracted from serverTime: " + hour);
+        }
+        if (minute > 59) {
+            throw new IllegalArgumentException("Invalid minute extracted from serverTime: " + minute);
+        }
 
         return LocalDateTime.of(year, month, day, hour, minute);
     }

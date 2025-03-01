@@ -40,7 +40,7 @@ public class SensorGroupResponseDto {
         private Long communicationSignalStrength;
         private Long communicationSignalThreshold;
         private Long wireless235Strength;
-        private Map<String,String> deviceSetting;
+        private Map<String,String> deviceSettings;
         private Long femaleMute1;
         private Long femaleMute2;
         private Long maleMute1;
@@ -64,7 +64,7 @@ public class SensorGroupResponseDto {
         private String lastlyModifiedWith;
         private LocalDateTime updatedAt;
 
-        private Map<String, String> parseDeviceSettingToMap(List<String> deviceSetting) {
+        private Map<String, String> parseDeviceSettingsToMap(List<String> deviceSetting) {
             Map<String, String> map = new HashMap<>();
             map.put("Gender", deviceSetting.get(0));
             map.put("Sound", deviceSetting.get(1));
@@ -87,7 +87,7 @@ public class SensorGroupResponseDto {
             this.communicationSignalStrength = sensor.getCommunicationSignalStrength();
             this.communicationSignalThreshold = sensor.getCommunicationSignalThreshold();
             this.wireless235Strength = sensor.getWireless235Strength();
-            this.deviceSetting = parseDeviceSettingToMap(sensor.getDeviceSetting());
+            this.deviceSettings = parseDeviceSettingsToMap(sensor.getDeviceSetting());
             this.femaleMute1 = sensor.getFemaleMute1();
             this.femaleMute2 = sensor.getFemaleMute2();
             this.maleMute1 = sensor.getMaleMute1();
