@@ -93,7 +93,7 @@ public class WebSecurityConfig {
                                 .requestMatchers(HttpMethod.DELETE, "auth/user/**").hasAuthority("ADMIN")
                                 .requestMatchers(HttpMethod.PUT, "auth/user/password").hasAnyAuthority("ADMIN", "USER")
                                 .requestMatchers(HttpMethod.PUT, "auth/user/**").hasAuthority("ADMIN")
-                                .requestMatchers("scheduler/**").permitAll()
+                                .requestMatchers("scheduler/**", "skt/**").permitAll()
                                 .requestMatchers(HttpMethod.POST, "/project/page/*/section", "/project/element", "/file/applicant/step/**", "/announcement/**", "/faq/**", "/qna/**").hasAuthority("ADMIN")
                                 .requestMatchers("/project/**", "/corporation/**", "/qna/**", "/faq/**", "/file/**").hasAnyAuthority("VIEWER", "ADMIN")
                         .anyRequest().authenticated()
