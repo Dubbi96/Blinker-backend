@@ -18,7 +18,7 @@ public class ThingPlugController {
 
     private final ThingPlugService thingPlugService;
 
-    @GetMapping("/subscription-test")
+    @PostMapping("/subscription-test")
     public void subscriptionTest(@RequestBody String payload) {
         log.error("📩 ThingPlug에서 메시지 수신: " + payload);
 
@@ -35,7 +35,7 @@ public class ThingPlugController {
         }
     }
 
-    @PostMapping("/{sensorId}/latest")
+    @GetMapping("/{sensorId}/latest")
     public ParsedSensorLogDto getLatestContent(@PathVariable String sensorId) {
         try {
             // 1. 가장 최근 Content Instance 가져오기
