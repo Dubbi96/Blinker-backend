@@ -35,7 +35,7 @@ public class ThingPlugController {
         }
     }
 
-    @GetMapping("/{sensorId}/latest")
+    @PostMapping("/{sensorId}/latest")
     public ParsedSensorLogDto getLatestContent(@PathVariable String sensorId) {
         try {
             // 1. 가장 최근 Content Instance 가져오기
