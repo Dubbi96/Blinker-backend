@@ -28,6 +28,7 @@ public class SensorGroupResponseDto {
     @Data
     public static class SensorDto{
         private Long sensorId;
+        private String ssid;
         private String sensorGroupId;
         private String deviceNumber;
         private Long groupPositionNumber;
@@ -112,6 +113,7 @@ public class SensorGroupResponseDto {
             this.serverTime = sensor.getServerTime();
             this.updatedAt = sensor.getUpdatedAt();
             this.address = sensor.getAddress();
+            this.ssid = sensor.getSensorGroup().getSsid();
         }
     }
 

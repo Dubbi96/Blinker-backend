@@ -1,15 +1,10 @@
 package com.blinker.atom.controller;
 
-import com.blinker.atom.config.security.LoginAppUser;
-import com.blinker.atom.domain.appuser.AppUser;
-import com.blinker.atom.domain.appuser.AppUserSensorGroup;
-import com.blinker.atom.dto.appuser.SignUpRequestDto;
 import com.blinker.atom.service.scheduled.AppUserSensorGroupService;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
-import retrofit2.http.Path;
 
 @Slf4j
 @RestController
