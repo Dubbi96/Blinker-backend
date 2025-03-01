@@ -65,7 +65,7 @@ public class SensorController {
         return sensorService.getSensorDetailBySensorId(sensorId, appUser);
     }
 
-    @PatchMapping("/{sensorGroupId}")
+    @PutMapping("/{sensorGroupId}")
     @Operation(summary = "단일 sensor 정보 업데이트 요청", description = "<b>단일 sensor 정보 업데이트 요청</b>")
     public String createContentInstance(
             @Parameter(example = "0000102140ca63fffe1df1ce")
