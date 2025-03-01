@@ -287,13 +287,21 @@ public class SensorLogSchedulerService {
                     markAsProcessed(logEntry);
                     return;
                 }
-                sensorGroupRepository.updateSsid(group.getId(), sensorLogContentInstance.substring(2, 16));
+                sensorGroupRepository.updateSsid(group.getId(), trimAfterFirstZero(sensorLogContentInstance.substring(12, 76)));
             }
 
             markAsProcessed(logEntry);
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException("Json Parsing에 실패하였습니다.",e);
         }
+    }
+
+    private String trimAfterFirstZero(String input) {
+        int firstZeroIndex = input.indexOf("00");
+        if (firstZeroIndex == -1) {
+            return input;
+        }
+        return input.substring(0, firstZeroIndex);
     }
 
     @Transactional
