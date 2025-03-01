@@ -43,7 +43,7 @@ public class AppUserController {
         return authService.getUserList();
     }
 
-    @PutMapping("/user/password")
+    @PatchMapping("/user/password")
     @Operation(summary = "유저 비밀번호 변경", description = "<b> - 특정 AppUser에 대하여 신규 비밀번호를 설정 <br> - 비밀번호 변경 시 salt도 재설정됨</b>")
     public void updateUserPassword(@LoginAppUser AppUser appUser, @RequestBody String newPassword){
         authService.updateAppUserPassword(appUser, newPassword);
