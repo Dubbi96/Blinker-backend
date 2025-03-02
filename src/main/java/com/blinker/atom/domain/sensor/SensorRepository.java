@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -19,4 +20,6 @@ public interface SensorRepository extends JpaRepository<Sensor,Long> {
     Optional<Sensor> findSensorByDeviceNumber(String deviceNumber);
 
     Optional<Sensor> findSensorById(Long id);
+
+    Optional<Sensor> getSensorByDeviceNumberAndGroupPositionNumber(String deviceNumber, Long groupPositionNumber);
 }

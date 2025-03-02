@@ -63,7 +63,6 @@ public class SensorGroupService {
     @Transactional(readOnly = true)
     public List<UnregisteredSensorGroupResponseDto> getUnregisteredSensorGroups() {
         List<SensorGroup> sensorGroups = sensorGroupRepository.findUnrelatedSensorGroups();
-        log.info("📌 조회된 센서 그룹 개수: {}", sensorGroups.size());
         return sensorGroups.stream()
                 .sorted(Comparator.comparing(SensorGroup::getOrder))
                 .map(sensorGroup -> {

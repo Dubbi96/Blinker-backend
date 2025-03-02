@@ -51,4 +51,12 @@ public class ScheduledServiceController {
         sensorLogSchedulerService.updateSensorAddress();
         return "Sensor 주소정보 업데이트 시작";
     }
+
+    @PatchMapping("/sensor-roll-back/start")
+    @Operation(summary = "보유한 모든 Sensor 정보 rollback", description = "⛔️ 멀티 쓰레드 환경에서 동작하므로 사용에 주의 요함")
+    public String rollbackAllSensors() {
+        sensorLogSchedulerService.rollbackSensors();
+        return "Sensor 정보 rollback 시작";
+    }
+
 }

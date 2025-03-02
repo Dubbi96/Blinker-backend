@@ -67,13 +67,13 @@ public class SensorController {
 
     @PutMapping("/{sensorGroupId}")
     @Operation(summary = "단일 sensor 정보 업데이트 요청", description = "<b>단일 sensor 정보 업데이트 요청</b>")
-    public String createContentInstance(
+    public String updateSensorToThingPlug(
             @Parameter(example = "0000102140ca63fffe1df1ce")
             @PathVariable("sensorGroupId") String sensorGroupId,
             @RequestBody SensorUpdateRequestDto content
     ) {
         log.info("Received request to create contentInstance: content={}",
                 content);
-        return thingPlugService.createContentInstance(sensorGroupId, content);
+        return thingPlugService.updateSensorToThingPlug(sensorGroupId, content);
     }
 }

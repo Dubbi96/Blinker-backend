@@ -3,9 +3,9 @@ package com.blinker.atom.service.scheduled;
 import com.blinker.atom.config.error.CustomException;
 import com.blinker.atom.domain.sensor.*;
 import com.blinker.atom.dto.thingplug.ParsedSensorLogDto;
-import com.blinker.atom.util.httpclientutil.HttpClientUtil;
 import com.blinker.atom.util.ParsingUtil;
 import com.blinker.atom.util.XmlUtil;
+import com.blinker.atom.util.httpclientutil.HttpClientUtil;
 import com.blinker.atom.util.httpclientutil.KakaoHeaderProvider;
 import com.blinker.atom.util.httpclientutil.ThingPlugHeaderProvider;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -17,8 +17,6 @@ import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.configurationprocessor.json.JSONArray;
-import org.springframework.boot.configurationprocessor.json.JSONObject;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -26,10 +24,8 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpClientErrorException;
 
-import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -73,6 +69,67 @@ public class SensorLogSchedulerService {
 
     private static final String KAKAO_API_URL = "https://dapi.kakao.com/v2/local/geo/coord2address.json?x=%s&y=%s";
     private final ExecutorService executorService = Executors.newFixedThreadPool(10);
+
+    @Transactional
+    public void rollbackSensors(){
+        List<Sensor> sensors = sensorRepository.findAll();
+        scheduleRollbackSensors(sensors);
+    }
+
+    @Transactional
+    protected void scheduleRollbackSensors(List<Sensor> sensors) {
+        // Hibernate 세션에서 관리되는 상태로 유지하기 위해 merge()
+        List<CompletableFuture<Void>> futures = sensors.stream()
+            .map(sensor -> CompletableFuture.runAsync(() -> rollbackSensors(sensor), executorService))
+            .toList();
+
+        // 모든 요청이 완료될 때까지 대기
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+    }
+
+    @Transactional
+    protected void rollbackSensors(Sensor sensor) {
+        ParsedSensorLogDto parsedSensorLog = ParsingUtil.parseMessage(sensor.getLastlyModifiedWith());
+        Sensor updatedSensor = Sensor.builder()
+                .id(sensor.getId())
+                .sensorGroup(sensor.getSensorGroup())
+                .deviceNumber(parsedSensorLog.getDeviceNumber())
+                .deviceId((double) parsedSensorLog.getDeviceId())
+                .positionSignalStrength((long) parsedSensorLog.getPositionSignalStrength())
+                .positionSignalThreshold((long) parsedSensorLog.getPositionSignalThreshold())
+                .communicationSignalStrength((long) parsedSensorLog.getCommSignalStrength())
+                .communicationSignalThreshold((long) parsedSensorLog.getCommSignalThreshold())
+                .wireless235Strength((long) parsedSensorLog.getWireless235Strength())
+                .deviceSetting(List.of(parsedSensorLog.getDeviceSettings().split(", ")))
+                .communicationInterval((long) parsedSensorLog.getCommInterval())
+                .faultInformation(parsedSensorLog.getFaultInformation())
+                .swVersion((long) parsedSensorLog.getSwVersion())
+                .hwVersion((long) parsedSensorLog.getHwVersion())
+                .buttonCount((long) parsedSensorLog.getButtonCount())
+                .positionGuideCount((long) parsedSensorLog.getPositionGuideCount())
+                .signalGuideCount((long) parsedSensorLog.getSignalGuideCount())
+                .groupPositionNumber((long) parsedSensorLog.getGroupPositionNumber())
+                .femaleMute1((long) parsedSensorLog.getSilentSettings().get("Female Mute 1"))
+                .femaleMute2((long) parsedSensorLog.getSilentSettings().get("Female Mute 2"))
+                .maleMute1((long) parsedSensorLog.getSilentSettings().get("Male Mute 1"))
+                .maleMute2((long) parsedSensorLog.getSilentSettings().get("Male Mute 2"))
+                .birdVolume((long) parsedSensorLog.getVolumeSettings().get("Bird Volume"))
+                .cricketVolume((long) parsedSensorLog.getVolumeSettings().get("Cricket Volume"))
+                .dingdongVolume((long) parsedSensorLog.getVolumeSettings().get("Dingdong Volume"))
+                .femaleVolume((long) parsedSensorLog.getVolumeSettings().get("Female Volume"))
+                .maleVolume((long) parsedSensorLog.getVolumeSettings().get("Male Volume"))
+                .minuetVolume((long) parsedSensorLog.getVolumeSettings().get("Minuet Volume"))
+                .systemVolume((long) parsedSensorLog.getVolumeSettings().get("System Volume"))
+                .latitude(sensor.getLatitude())
+                .longitude(sensor.getLongitude())
+                .lastlyModifiedWith(sensor.getLastlyModifiedWith())
+                .serverTime(decodeServerTime(parsedSensorLog.getServerTime()))
+                .updatedAt(sensor.getUpdatedAt())
+                .address(sensor.getAddress())
+                .memo(sensor.getMemo())
+                .build();
+        sensorRepository.save(updatedSensor);
+    }
 
     /**
      * 	1.	sensor_group 테이블의 모든 행을 조회.
@@ -214,7 +271,7 @@ public class SensorLogSchedulerService {
     }
 
     /**
-     * 🔹 **로그 하나를 처리하는 메서드 (동기 실행)**
+     * **로그 하나를 처리하는 메서드 (동기 실행)**
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void processSensorLog(SensorLog logEntry) {
@@ -390,6 +447,7 @@ public class SensorLogSchedulerService {
                 .serverTime(decodeServerTime(parsedSensorLog.getServerTime()))
                 .updatedAt(LocalDateTime.now())
                 .address(sensor.getAddress())
+                .memo(sensor.getMemo())
                 .build();
         sensorRepository.save(updatedSensor);
     }
@@ -472,23 +530,16 @@ public class SensorLogSchedulerService {
     /** Kakao 응답에서 첫 번째 주소지 파싱 */
     private String extractAddressFromResponse(String response) {
         try {
-            // JSON 문자열을 JsonNode 객체로 변환
             JsonNode rootNode = objectMapper.readTree(response);
-
-            // "documents" 배열이 존재하는지 확인
             JsonNode documentsNode = rootNode.get("documents");
             if (documentsNode == null || !documentsNode.isArray() || documentsNode.isEmpty()) {
                 return "주소 정보 없음";
             }
-
-            // 첫 번째 document에서 address.address_name 값 가져오기
             JsonNode firstDocument = documentsNode.get(0);
             JsonNode addressNode = firstDocument.get("address");
-
             if (addressNode == null || addressNode.get("address_name") == null) {
                 return "주소 정보 없음";
             }
-
             return addressNode.get("address_name").asText();
         } catch (Exception e) {
             return "주소 정보 없음";

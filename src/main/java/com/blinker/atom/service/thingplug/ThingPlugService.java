@@ -1,7 +1,10 @@
 package com.blinker.atom.service.thingplug;
 
+import com.blinker.atom.config.error.CustomException;
+import com.blinker.atom.domain.sensor.Sensor;
 import com.blinker.atom.domain.sensor.SensorGroup;
 import com.blinker.atom.domain.sensor.SensorGroupRepository;
+import com.blinker.atom.domain.sensor.SensorRepository;
 import com.blinker.atom.dto.thingplug.SensorUpdateRequestDto;
 import com.blinker.atom.dto.thingplug.ParsedSensorLogDto;
 import com.blinker.atom.util.EncodingUtil;
@@ -16,17 +19,32 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ThingPlugService {
 
+    private static final List<String> ORDERED_KEYS = Arrays.asList(
+        "Gender", "Sound", "Crossroad" , "Proximity", "Configuration", "Priority"
+    );
+
+    private List<String> convertDeviceSettingsToList(Map<String, String> deviceSettings) {
+        return ORDERED_KEYS.stream()
+            .map(key -> deviceSettings.getOrDefault(key, ""))  // 값이 없으면 빈 문자열("")
+            .collect(Collectors.toList());
+    }
+
+
     private final SensorGroupRepository sensorGroupRepository;
+    private final SensorRepository sensorRepository;
     @Value("${thingplug.base.url}")
     private String baseUrl;
 
@@ -128,7 +146,7 @@ public class ThingPlugService {
         return remoteCSEIds;
     }
 
-    public String createContentInstance(String sensorGroupId, SensorUpdateRequestDto request) {
+    public String updateSensorToThingPlug(String sensorGroupId, SensorUpdateRequestDto request) {
         String url = String.format("%s/%s/v1_0/mgmtCmd-%s_extDevMgmt", baseUrl, appEui, sensorGroupId);
         int sequenceNumber = getNextSequenceNumber(request.getDeviceId());
         String encodedContent = EncodingUtil.encodeToHex(request,83 , sequenceNumber);
@@ -142,7 +160,48 @@ public class ThingPlugService {
 
         log.info("Creating contentInstance at URL: {}", url);
         log.info("Creating contentInstance: {}", body);
-        return HttpClientUtil.put(url, new ThingPlugHeaderProvider(origin, uKey, requestId), body);
+        Sensor sensor = sensorRepository.getSensorByDeviceNumberAndGroupPositionNumber(request.getDeviceNumber(),Long.parseLong(String.valueOf(request.getGroupPositionNumber())))
+                .orElseThrow(() -> new CustomException("데이터베이스에 존재하지 않는 센서 입니다."));
+        String response = HttpClientUtil.put(url, new ThingPlugHeaderProvider(origin, uKey, requestId), body);
+        Sensor updatedSensor = Sensor.builder()
+                .id(sensor.getId())
+                .sensorGroup(sensor.getSensorGroup())
+                .deviceNumber(request.getDeviceNumber())
+                .deviceId((double) request.getDeviceId())
+                .positionSignalStrength((long) request.getPositionSignalStrength())
+                .positionSignalThreshold((long) request.getPositionSignalThreshold())
+                .communicationSignalStrength((long) request.getCommunicationSignalStrength())
+                .communicationSignalThreshold((long) request.getCommunicationSignalThreshold())
+                .wireless235Strength((long) request.getWireless235Strength())
+                .deviceSetting(convertDeviceSettingsToList(request.getDeviceSettings()))
+                .communicationInterval((long) request.getCommunicationInterval())
+                .faultInformation(sensor.getFaultInformation())
+                .swVersion((long) request.getSwVersion())
+                .hwVersion((long) request.getHwVersion())
+                .buttonCount(sensor.getButtonCount())
+                .positionGuideCount(sensor.getPositionGuideCount())
+                .signalGuideCount(sensor.getSignalGuideCount())
+                .groupPositionNumber((long) request.getGroupPositionNumber())
+                .femaleMute1(request.getFemaleMute1())
+                .femaleMute2(request.getFemaleMute2())
+                .maleMute1(request.getMaleMute1())
+                .maleMute2(request.getMaleMute2())
+                .birdVolume(request.getBirdVolume())
+                .cricketVolume(request.getCricketVolume())
+                .dingdongVolume(request.getDingdongVolume())
+                .femaleVolume(request.getFemaleVolume())
+                .maleVolume(request.getMaleVolume())
+                .minuetVolume(request.getMinuetVolume())
+                .systemVolume(request.getSystemVolume())
+                .latitude(sensor.getLatitude())
+                .longitude(sensor.getLongitude())
+                .lastlyModifiedWith(sensor.getLastlyModifiedWith())
+                .serverTime(sensor.getServerTime())
+                .updatedAt(sensor.getUpdatedAt())
+                .address(sensor.getAddress())
+                .memo(sensor.getMemo())
+                .build();
+        sensorRepository.save(updatedSensor);
+        return response;
     }
-
 }
