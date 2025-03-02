@@ -389,6 +389,7 @@ public class SensorLogSchedulerService {
                 .lastlyModifiedWith(sensorLogContentInstance)
                 .serverTime(decodeServerTime(parsedSensorLog.getServerTime()))
                 .updatedAt(LocalDateTime.now())
+                .address(sensor.getAddress())
                 .build();
         sensorRepository.save(updatedSensor);
     }

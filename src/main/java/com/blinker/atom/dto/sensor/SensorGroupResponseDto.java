@@ -64,6 +64,8 @@ public class SensorGroupResponseDto {
         private LocalDateTime serverTime;
         private String lastlyModifiedWith;
         private LocalDateTime updatedAt;
+        private String groupKey;
+        private Long sensorCount;
 
         private Map<String, String> parseDeviceSettingsToMap(List<String> deviceSetting) {
             Map<String, String> map = new HashMap<>();
@@ -114,6 +116,8 @@ public class SensorGroupResponseDto {
             this.updatedAt = sensor.getUpdatedAt();
             this.address = sensor.getAddress();
             this.ssid = sensor.getSensorGroup().getSsid();
+            this.groupKey = sensor.getSensorGroup().getGroupKey();
+            this.sensorCount = sensor.getSensorGroup().getSensorCount();
         }
     }
 

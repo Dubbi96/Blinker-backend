@@ -79,10 +79,10 @@ public class EncodingUtil {
         hexString.append("00");
 
         // 20. Group Number (8자리 - Little-Endian 처리)
-        hexString.append(content.getGroupNumber());
+        hexString.append(content.getGroupKey());
 
         // 21. Signals in Group (2자리)
-        hexString.append(String.format("%02x", content.getSignalsInGroup()));
+        hexString.append(String.format("%02x", content.getSensorCount()));
 
         // 22. Group Position Number (2자리)
         hexString.append(String.format("%02x", content.getGroupPositionNumber()));
