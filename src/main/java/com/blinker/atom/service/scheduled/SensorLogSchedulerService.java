@@ -469,21 +469,27 @@ public class SensorLogSchedulerService {
     }
 
 
-    /**kakao 응답에서 첫번째 주소지 파싱*/
+    /** Kakao 응답에서 첫 번째 주소지 파싱 */
     private String extractAddressFromResponse(String response) {
         try {
-            JSONObject json = new JSONObject(response);
-            JSONArray documents = json.getJSONArray("documents");
+            // JSON 문자열을 JsonNode 객체로 변환
+            JsonNode rootNode = objectMapper.readTree(response);
 
-            if (documents.length() == 0) {
+            // "documents" 배열이 존재하는지 확인
+            JsonNode documentsNode = rootNode.get("documents");
+            if (documentsNode == null || !documentsNode.isArray() || documentsNode.isEmpty()) {
                 return "주소 정보 없음";
             }
 
             // 첫 번째 document에서 address.address_name 값 가져오기
-            JSONObject firstDocument = documents.getJSONObject(0);
-            JSONObject address = firstDocument.getJSONObject("address");
+            JsonNode firstDocument = documentsNode.get(0);
+            JsonNode addressNode = firstDocument.get("address");
 
-            return address.getString("address_name");
+            if (addressNode == null || addressNode.get("address_name") == null) {
+                return "주소 정보 없음";
+            }
+
+            return addressNode.get("address_name").asText();
         } catch (Exception e) {
             return "주소 정보 없음";
         }
