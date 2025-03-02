@@ -8,6 +8,7 @@ import com.blinker.atom.domain.sensor.*;
 import com.blinker.atom.dto.sensor.SensorGroupResponseDto;
 import com.blinker.atom.dto.sensor.UnregisteredSensorGroupResponseDto;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,6 +17,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SensorGroupService {
@@ -61,11 +63,12 @@ public class SensorGroupService {
     @Transactional(readOnly = true)
     public List<UnregisteredSensorGroupResponseDto> getUnregisteredSensorGroups() {
         List<SensorGroup> sensorGroups = sensorGroupRepository.findUnrelatedSensorGroups();
+        log.info("📌 조회된 센서 그룹 개수: {}", sensorGroups.size());
         return sensorGroups.stream()
-                .sorted(Comparator.comparing(SensorGroup::getId))
+                .sorted(Comparator.comparing(SensorGroup::getOrder))
                 .map(sensorGroup -> {
                     Sensor s = sensorRepository.findMasterSensorBySensorGroup(sensorGroup.getId()).orElseGet(Sensor::new);
-                    return new UnregisteredSensorGroupResponseDto(sensorGroup, s.getLongitude(),s.getLongitude());
+                    return new UnregisteredSensorGroupResponseDto(sensorGroup, s.getAddress());
                 })
                 .toList();
     }

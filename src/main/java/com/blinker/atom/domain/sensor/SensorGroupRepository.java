@@ -49,7 +49,7 @@ public interface SensorGroupRepository extends JpaRepository<SensorGroup, String
             SELECT ausg.sensor_group_id
             FROM app_user_sensor_group ausg
             JOIN app_user au ON ausg.app_user_id = au.app_user_id
-            WHERE 'ADMIN' = ANY(au.roles)
+            WHERE 'USER' = ANY(au.roles)
         )
         """, nativeQuery = true)
     List<SensorGroup> findUnrelatedSensorGroups();

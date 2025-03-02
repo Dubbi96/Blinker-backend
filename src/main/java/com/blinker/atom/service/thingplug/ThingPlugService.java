@@ -1,5 +1,7 @@
 package com.blinker.atom.service.thingplug;
 
+import com.blinker.atom.domain.sensor.SensorGroup;
+import com.blinker.atom.domain.sensor.SensorGroupRepository;
 import com.blinker.atom.dto.thingplug.SensorUpdateRequestDto;
 import com.blinker.atom.dto.thingplug.ParsedSensorLogDto;
 import com.blinker.atom.util.EncodingUtil;
@@ -24,6 +26,7 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class ThingPlugService {
 
+    private final SensorGroupRepository sensorGroupRepository;
     @Value("${thingplug.base.url}")
     private String baseUrl;
 
@@ -100,8 +103,16 @@ public class ThingPlugService {
     public List<String> fetchRemoteCSEIds() {
         String url = String.format("%s/%s/v1_0?fu=1&ty=16", baseUrl, appEui);
         String response = HttpClientUtil.get(url, new ThingPlugHeaderProvider(origin, uKey, requestId));
+        List<String> remoteCSEIds = extractRemoteCSEIds(response);
 
-        return extractRemoteCSEIds(response);
+        remoteCSEIds.forEach(sensorGroupId -> {
+            // ID가 존재하지 않는 경우에만 저장
+            if (!sensorGroupRepository.existsById(sensorGroupId)) {
+                sensorGroupRepository.save(SensorGroup.builder().id(sensorGroupId).build());
+            }
+        });
+
+        return remoteCSEIds;
     }
 
     private List<String> extractRemoteCSEIds(String response) {

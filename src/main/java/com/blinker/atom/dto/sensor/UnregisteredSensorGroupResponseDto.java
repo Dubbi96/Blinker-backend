@@ -6,12 +6,10 @@ import lombok.Data;
 @Data
 public class UnregisteredSensorGroupResponseDto {
     private String sensorGroupId;
-    private Double longitude;
-    private Double latitude;
+    private String address;
 
-    public UnregisteredSensorGroupResponseDto(SensorGroup sensorGroup, Double longitude, Double latitude) {
+    public UnregisteredSensorGroupResponseDto(SensorGroup sensorGroup, String address) {
         this.sensorGroupId = sensorGroup.getId();
-        this.longitude = longitude;
-        this.latitude = latitude;
+        this.address = address;
     }
 }
