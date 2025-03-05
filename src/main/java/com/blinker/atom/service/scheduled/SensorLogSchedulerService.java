@@ -27,9 +27,7 @@ import org.springframework.web.client.HttpClientErrorException;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -78,12 +76,9 @@ public class SensorLogSchedulerService {
 
     @Transactional
     protected void scheduleRollbackSensors(List<Sensor> sensors) {
-        // Hibernate 세션에서 관리되는 상태로 유지하기 위해 merge()
         List<CompletableFuture<Void>> futures = sensors.stream()
             .map(sensor -> CompletableFuture.runAsync(() -> rollbackSensors(sensor), executorService))
             .toList();
-
-        // 모든 요청이 완료될 때까지 대기
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
     }
 
@@ -152,6 +147,8 @@ public class SensorLogSchedulerService {
     @Transactional(readOnly = true)
     public void fetchAndSaveSensorLogs() {
         log.info("🔹 Sensor Log 스케줄러 실행...");
+        Set<String> existingEventCodes = new HashSet<>(sensorLogRepository.findAllEventCodes());
+
         // 모든 sensor_group 조회
         List<SensorGroup> sensorGroups = sensorGroupRepository.findAll();
 
@@ -166,12 +163,18 @@ public class SensorLogSchedulerService {
                 log.warn("API 응답이 없음. SensorGroup: {}", sensorGroupId);
                 continue;
             }
-
             // XML 파싱하여 contentInstance 리스트 추출
             List<String> eventCodes = extractContentInstanceUri(response);
-
+            List<String> newEventCodes = new ArrayList<>();
+            for (String eventCode : eventCodes) {
+                if (existingEventCodes.contains(eventCode)) {
+                    log.info("중복된 이벤트 코드 (저장되지 않음): {}", eventCode);  // 중복된 이벤트 코드 저장
+                } else {
+                    newEventCodes.add(eventCode);  // 새로운 이벤트 코드 저장
+                }
+            }
             // SensorLog 저장 (중복 방지)
-            saveSensorLogs(eventCodes, group);
+            saveSensorLogs(newEventCodes, group);
         }
     }
 
@@ -183,7 +186,7 @@ public class SensorLogSchedulerService {
                 result.add(matcher.group(1));
             }
             if (result.isEmpty()) {
-                log.error("No valid Content Instance URI found in the response.");
+                log.warn("No valid Content Instance URI found in the response.");
             }
         return result;
     }
@@ -191,10 +194,8 @@ public class SensorLogSchedulerService {
     @Transactional
     protected void saveSensorLogs(List<String> eventCodes, SensorGroup group) {
         // Hibernate 세션에서 관리되는 상태로 유지하기 위해 merge()
-        SensorGroup managedGroup = entityManager.merge(group);
-
         List<CompletableFuture<Void>> futures = eventCodes.stream()
-            .map(eventCode -> CompletableFuture.runAsync(() -> fetchAndSaveLog(eventCode, managedGroup), executorService))
+            .map(eventCode -> CompletableFuture.runAsync(() -> fetchAndSaveLog(eventCode, group), executorService))
             .toList();
 
         // 모든 요청이 완료될 때까지 대기
@@ -204,10 +205,10 @@ public class SensorLogSchedulerService {
     @Async
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     protected void fetchAndSaveLog(String eventCode, SensorGroup group) {
-        if (sensorLogRepository.findByEventCode(eventCode).isPresent()) {
-            log.info("이미 존재하는 이벤트 코드 (스킵): {}", eventCode);
+        /*if (sensorLogRepository.findByEventCode(eventCode).isPresent()) {
+            log.info("❤️❤️❤️❤️❤️❤️❤️❤️️️️❤️️️️❤️️️️❤️️️️❤️️️️이미 존재하는 이벤트 코드 (스킵): {}", eventCode);
             return;
-        }
+        }*/
         String contentInstanceUrl = String.format("%s/%s/v1_0/remoteCSE-%s/container-LoRa/contentInstance-%s",
                 baseUrl, appEui, group.getId(), eventCode);
         try {

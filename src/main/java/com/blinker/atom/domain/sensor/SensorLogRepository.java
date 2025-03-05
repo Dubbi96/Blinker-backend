@@ -24,4 +24,7 @@ public interface SensorLogRepository extends JpaRepository<SensorLog, Long> {
             @Param("deviceNumber") String deviceNumber,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
+
+    @Query("SELECT sl.eventCode FROM SensorLog sl")
+    List<String> findAllEventCodes();
 }
