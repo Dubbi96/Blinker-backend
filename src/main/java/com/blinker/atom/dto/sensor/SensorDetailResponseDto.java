@@ -15,13 +15,13 @@ public class SensorDetailResponseDto {
     private String status;
     private String memo;
 
-    public SensorDetailResponseDto(Sensor sensor, String status) {
+    public SensorDetailResponseDto(Sensor sensor, String status, String memo) {
         this.sensorGroupId = sensor.getSensorGroup().getId();
         this.deviceNumber = sensor.getDeviceNumber();
         this.groupPositionNumber = sensor.getGroupPositionNumber();
         this.address = sensor.getAddress();
         this.updatedAt = sensor.getUpdatedAt();
         this.status = status;
-        this.memo = sensor.getMemo();
+        this.memo = memo;
     }
 }

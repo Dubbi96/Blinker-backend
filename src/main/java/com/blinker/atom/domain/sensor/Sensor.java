@@ -133,9 +133,6 @@ public class Sensor {
     @Column(name = "address")
     private String address;
 
-    @Column(name = "memo")
-    private String memo;
-
     @Column(name = "created_at", updatable = false, nullable = false)
     @Temporal(TemporalType.TIMESTAMP)
     private LocalDateTime createdAt;

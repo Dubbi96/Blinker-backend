@@ -199,7 +199,6 @@ public class ThingPlugService {
                 .serverTime(sensor.getServerTime())
                 .updatedAt(sensor.getUpdatedAt())
                 .address(sensor.getAddress())
-                .memo(sensor.getMemo())
                 .build();
         sensorRepository.save(updatedSensor);
         return response;

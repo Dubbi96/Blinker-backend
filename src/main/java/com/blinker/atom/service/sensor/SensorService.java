@@ -3,10 +3,13 @@ package com.blinker.atom.service.sensor;
 import com.blinker.atom.config.error.CustomException;
 import com.blinker.atom.config.error.ErrorValue;
 import com.blinker.atom.domain.appuser.AppUser;
+import com.blinker.atom.domain.appuser.AppUserSensor;
 import com.blinker.atom.domain.appuser.AppUserSensorGroupRepository;
+import com.blinker.atom.domain.appuser.AppUserSensorRepository;
 import com.blinker.atom.domain.sensor.*;
 import com.blinker.atom.dto.sensor.SensorDetailResponseDto;
 import com.blinker.atom.dto.sensor.SensorLogResponseDto;
+import com.blinker.atom.dto.sensor.SensorMemoRequestDto;
 import com.blinker.atom.dto.sensor.UnregisteredSensorGroupResponseDto;
 import com.blinker.atom.dto.thingplug.ParsedSensorLogDto;
 import com.blinker.atom.util.ParsingUtil;
@@ -29,6 +32,7 @@ public class SensorService {
     private final SensorRepository sensorRepository;
     private final SensorLogRepository sensorLogRepository;
     private final AppUserSensorGroupRepository appUserSensorGroupRepository;
+    private final AppUserSensorRepository appUserSensorRepository;
 
     @Transactional(readOnly = true)
     public List<SensorLogResponseDto> getSensorLogsBySensorId(Long sensorId, AppUser appUser, Integer year, Integer month, Integer day) {
@@ -108,11 +112,25 @@ public class SensorService {
     public SensorDetailResponseDto getSensorDetailBySensorId(Long sensorId, AppUser appUser) {
         Sensor sensor = sensorRepository.findSensorById(sensorId).orElseThrow(() -> new CustomException(ErrorValue.SENSOR_NOT_FOUND.getMessage()));
         boolean isAppUserAuthorized = appUserSensorGroupRepository.existsByAppUserAndSensorGroup(appUser, sensor.getSensorGroup());
+        AppUserSensor appUserSensor = appUserSensorRepository.findBySensorAndAppUser(sensor, appUser).orElse(null);
         if(!isAppUserAuthorized) {
             throw new CustomException(ErrorValue.UNAUTHORIZED_SERVICE.getMessage());
         }
         String status = "정상";
         if(sensor.getFaultInformation().containsValue(true)) status = "오류";
-        return new SensorDetailResponseDto(sensor, status);
+
+        return new SensorDetailResponseDto(sensor, status, appUserSensor == null ? null : appUserSensor.getMemo());
+    }
+
+    @Transactional
+    public void updateOrCreateSensorMemo(AppUser appUser, Long sensorId, SensorMemoRequestDto sensorMemoRequestDto) {
+        Sensor sensor = sensorRepository.findSensorById(sensorId).orElseThrow(() -> new CustomException(ErrorValue.SENSOR_NOT_FOUND.getMessage()));
+        AppUserSensor appUserSensor = appUserSensorRepository.findBySensorAndAppUser(sensor, appUser)
+                .orElse(AppUserSensor.builder()
+                        .appUser(appUser)
+                        .sensor(sensor)
+                        .build());
+        appUserSensor.updateMemo(sensorMemoRequestDto.getMemo());
+        appUserSensorRepository.save(appUserSensor);
     }
 }

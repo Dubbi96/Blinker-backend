@@ -121,7 +121,6 @@ public class SensorLogSchedulerService {
                 .serverTime(decodeServerTime(parsedSensorLog.getServerTime()))
                 .updatedAt(sensor.getUpdatedAt())
                 .address(sensor.getAddress())
-                .memo(sensor.getMemo())
                 .build();
         sensorRepository.save(updatedSensor);
     }
@@ -448,7 +447,6 @@ public class SensorLogSchedulerService {
                 .serverTime(decodeServerTime(parsedSensorLog.getServerTime()))
                 .updatedAt(LocalDateTime.now())
                 .address(sensor.getAddress())
-                .memo(sensor.getMemo())
                 .build();
         sensorRepository.save(updatedSensor);
     }

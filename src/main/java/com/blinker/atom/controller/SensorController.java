@@ -2,10 +2,7 @@ package com.blinker.atom.controller;
 
 import com.blinker.atom.config.security.LoginAppUser;
 import com.blinker.atom.domain.appuser.AppUser;
-import com.blinker.atom.dto.sensor.SensorDetailResponseDto;
-import com.blinker.atom.dto.sensor.SensorGroupResponseDto;
-import com.blinker.atom.dto.sensor.SensorLogResponseDto;
-import com.blinker.atom.dto.sensor.UnregisteredSensorGroupResponseDto;
+import com.blinker.atom.dto.sensor.*;
 import com.blinker.atom.dto.thingplug.SensorUpdateRequestDto;
 import com.blinker.atom.service.sensor.SensorGroupService;
 import com.blinker.atom.service.sensor.SensorService;
@@ -75,5 +72,14 @@ public class SensorController {
         log.info("Received request to create contentInstance: content={}",
                 content);
         return thingPlugService.updateSensorToThingPlug(sensorGroupId, content);
+    }
+
+    @PatchMapping("/memo/{sensorId}")
+    @Operation(summary = "단일 sensor memo 생성 / 수정", description = "<b>단일 sensor 메모</b> <br> 해당 AppUser에게 Sensor 메모가 존재한다면 <b>수정</b> <br> 해당 AppUser에게 Sensor 메모가 존재하지 않는다면<b> 신규 생성</b>")
+    public void updateOrCreate(@LoginAppUser AppUser appUser,
+                               @PathVariable("sensorId") Long sensorId,
+                               @RequestBody SensorMemoRequestDto sensorMemoRequestDto
+    ) {
+        sensorService.updateOrCreateSensorMemo(appUser, sensorId, sensorMemoRequestDto);
     }
 }
