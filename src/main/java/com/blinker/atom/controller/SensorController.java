@@ -2,6 +2,7 @@ package com.blinker.atom.controller;
 
 import com.blinker.atom.config.security.LoginAppUser;
 import com.blinker.atom.domain.appuser.AppUser;
+import com.blinker.atom.domain.sensor.Sensor;
 import com.blinker.atom.dto.sensor.*;
 import com.blinker.atom.dto.thingplug.SensorUpdateRequestDto;
 import com.blinker.atom.service.sensor.SensorGroupService;
@@ -57,9 +58,9 @@ public class SensorController {
     }
 
     @GetMapping("/{sensorId}/detail")
-    @Operation(summary = "sensorId와 관련된 상세 정보 조회", description = "<b>fault information</b>이 하나라도 <b>true</b>일 경우 <b>status = 오류</b>로 표현, 기기 위치는 <b>latitude, longitude</b>로 전달")
-    public SensorDetailResponseDto getSensorDetail(@PathVariable("sensorId") Long sensorId, @LoginAppUser AppUser appUser) {
-        return sensorService.getSensorDetailBySensorId(sensorId, appUser);
+    @Operation(summary = "단일 센서 상세 정보 조회", description = "<b>fault information</b>이 하나라도 <b>true</b>일 경우 <b>status = 오류</b>로 표현 <br> 메모의 경우 전달된<b> appUserId</b>가 작성한 메모 전달")
+    public SensorDetailResponseDto getSensorDetail(@PathVariable("sensorId") Long sensorId, @RequestParam Long appUserId) {
+        return sensorService.getSensorDetailBySensorId(sensorId, appUserId);
     }
 
     @PutMapping("/{sensorGroupId}")
@@ -75,11 +76,12 @@ public class SensorController {
     }
 
     @PatchMapping("/memo/{sensorId}")
-    @Operation(summary = "단일 sensor memo 생성 / 수정", description = "<b>단일 sensor 메모</b> <br> 해당 AppUser에게 Sensor 메모가 존재한다면 <b>수정</b> <br> 해당 AppUser에게 Sensor 메모가 존재하지 않는다면<b> 신규 생성</b>")
+    @Operation(summary = "단일 sensor memo 생성 / 수정", description = "<b>단일 sensor 메모</b> <br>***@param*** appUserId와 Token에서 제공한 id가 동일한 경우만 수정 및 메모 가능. 아닐 경우 '권한 외 요청입니다' 반환 <br> 해당 AppUser에게 Sensor 메모가 존재한다면 <b>수정</b> <br> 해당 AppUser에게 Sensor 메모가 존재하지 않는다면<b> 신규 생성</b>")
     public void updateOrCreate(@LoginAppUser AppUser appUser,
                                @PathVariable("sensorId") Long sensorId,
+                               @RequestParam Long appUserId,
                                @RequestBody SensorMemoRequestDto sensorMemoRequestDto
     ) {
-        sensorService.updateOrCreateSensorMemo(appUser, sensorId, sensorMemoRequestDto);
+        sensorService.updateOrCreateSensorMemo(appUser, sensorId, appUserId, sensorMemoRequestDto);
     }
 }

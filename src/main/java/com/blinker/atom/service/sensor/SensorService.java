@@ -2,10 +2,7 @@ package com.blinker.atom.service.sensor;
 
 import com.blinker.atom.config.error.CustomException;
 import com.blinker.atom.config.error.ErrorValue;
-import com.blinker.atom.domain.appuser.AppUser;
-import com.blinker.atom.domain.appuser.AppUserSensor;
-import com.blinker.atom.domain.appuser.AppUserSensorGroupRepository;
-import com.blinker.atom.domain.appuser.AppUserSensorRepository;
+import com.blinker.atom.domain.appuser.*;
 import com.blinker.atom.domain.sensor.*;
 import com.blinker.atom.dto.sensor.SensorDetailResponseDto;
 import com.blinker.atom.dto.sensor.SensorLogResponseDto;
@@ -33,6 +30,7 @@ public class SensorService {
     private final SensorLogRepository sensorLogRepository;
     private final AppUserSensorGroupRepository appUserSensorGroupRepository;
     private final AppUserSensorRepository appUserSensorRepository;
+    private final AppUserRepository appUserRepository;
 
     @Transactional(readOnly = true)
     public List<SensorLogResponseDto> getSensorLogsBySensorId(Long sensorId, AppUser appUser, Integer year, Integer month, Integer day) {
@@ -109,7 +107,8 @@ public class SensorService {
     }
 
     @Transactional(readOnly = true)
-    public SensorDetailResponseDto getSensorDetailBySensorId(Long sensorId, AppUser appUser) {
+    public SensorDetailResponseDto getSensorDetailBySensorId(Long sensorId, Long appUserId) {
+        AppUser appUser = appUserRepository.findAppUserById(appUserId).orElseThrow(() -> new CustomException(ErrorValue.ACCOUNT_NOT_FOUND.getMessage()));
         Sensor sensor = sensorRepository.findSensorById(sensorId).orElseThrow(() -> new CustomException(ErrorValue.SENSOR_NOT_FOUND.getMessage()));
         boolean isAppUserAuthorized = appUserSensorGroupRepository.existsByAppUserAndSensorGroup(appUser, sensor.getSensorGroup());
         AppUserSensor appUserSensor = appUserSensorRepository.findBySensorAndAppUser(sensor, appUser).orElse(null);
@@ -123,7 +122,8 @@ public class SensorService {
     }
 
     @Transactional
-    public void updateOrCreateSensorMemo(AppUser appUser, Long sensorId, SensorMemoRequestDto sensorMemoRequestDto) {
+    public void updateOrCreateSensorMemo(AppUser appUser, Long sensorId, Long appUserId, SensorMemoRequestDto sensorMemoRequestDto) {
+        if (!appUser.getId().equals(appUserId)) throw new CustomException(ErrorValue.UNAUTHORIZED_SERVICE.getMessage());
         Sensor sensor = sensorRepository.findSensorById(sensorId).orElseThrow(() -> new CustomException(ErrorValue.SENSOR_NOT_FOUND.getMessage()));
         AppUserSensor appUserSensor = appUserSensorRepository.findBySensorAndAppUser(sensor, appUser)
                 .orElse(AppUserSensor.builder()
