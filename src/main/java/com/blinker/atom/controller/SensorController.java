@@ -2,7 +2,6 @@ package com.blinker.atom.controller;
 
 import com.blinker.atom.config.security.LoginAppUser;
 import com.blinker.atom.domain.appuser.AppUser;
-import com.blinker.atom.domain.sensor.Sensor;
 import com.blinker.atom.dto.sensor.*;
 import com.blinker.atom.dto.thingplug.SensorUpdateRequestDto;
 import com.blinker.atom.service.sensor.SensorGroupService;
@@ -12,7 +11,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.repository.query.Param;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -75,7 +73,7 @@ public class SensorController {
         return thingPlugService.updateSensorToThingPlug(sensorGroupId, content);
     }
 
-    @PatchMapping("/memo/{sensorId}")
+    @PatchMapping("/{sensorId}/memo")
     @Operation(summary = "단일 sensor memo 생성 / 수정", description = "<b>단일 sensor 메모</b> <br>***@param*** appUserId와 Token에서 제공한 id가 동일한 경우만 수정 및 메모 가능. 아닐 경우 '권한 외 요청입니다' 반환 <br> 해당 AppUser에게 Sensor 메모가 존재한다면 <b>수정</b> <br> 해당 AppUser에게 Sensor 메모가 존재하지 않는다면<b> 신규 생성</b>")
     public void updateOrCreate(@LoginAppUser AppUser appUser,
                                @PathVariable("sensorId") Long sensorId,
@@ -83,5 +81,11 @@ public class SensorController {
                                @RequestBody SensorMemoRequestDto sensorMemoRequestDto
     ) {
         sensorService.updateOrCreateSensorMemo(appUser, sensorId, appUserId, sensorMemoRequestDto);
+    }
+
+    @PatchMapping("/groups/order")
+    @Operation(summary = "전체 sensor group 순서 수정 ⭐️Admin 전용", description = "<b>센서 그룹 순서를 업데이트하는 API</b><br> 프론트엔드에서 새로운 순서로 정렬된 ID 리스트를 받아와 DB의 display_order 값을 갱신<br>만약 의도되지 않은 값, 혹은 실제 DB에 존재하지 않는 sensorGroupId가 포함된다면 해당 sensorGroup을 제외한 나머지 순서만 수정<br>만약 리스트에 존재하지 않고 DB상으로 추가된 sensorGroup이 존재할 경우 가장 후 순위로 지정")
+    public void updateSensorGroupOrder(@RequestBody SensorGroupOrderRequestDto requestDto) {
+        sensorGroupService.updateSensorGroupOrder(requestDto);
     }
 }

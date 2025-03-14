@@ -10,7 +10,6 @@ import java.util.List;
 @Entity
 @Table(name = "sensor_group")
 @Getter
-@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor

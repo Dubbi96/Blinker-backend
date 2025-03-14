@@ -5,6 +5,7 @@ import com.blinker.atom.config.error.ErrorValue;
 import com.blinker.atom.domain.appuser.AppUser;
 import com.blinker.atom.domain.appuser.AppUserRepository;
 import com.blinker.atom.domain.sensor.*;
+import com.blinker.atom.dto.sensor.SensorGroupOrderRequestDto;
 import com.blinker.atom.dto.sensor.SensorGroupResponseDto;
 import com.blinker.atom.dto.sensor.UnregisteredSensorGroupResponseDto;
 import lombok.RequiredArgsConstructor;
@@ -13,9 +14,9 @@ import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Comparator;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -70,5 +71,49 @@ public class SensorGroupService {
                     return new UnregisteredSensorGroupResponseDto(sensorGroup, s.getAddress());
                 })
                 .toList();
+    }
+
+    @Transactional
+    public void updateSensorGroupOrder(SensorGroupOrderRequestDto requestDto) {
+        List<String> requestedIds = requestDto.getSensorGroupIds();
+        List<SensorGroup> existingGroups = sensorGroupRepository.findAll();
+
+        // 2. 현재 존재하는 ID 목록 추출 (Set을 사용하여 빠르게 체크 가능)
+        Set<String> existingIds = existingGroups.stream()
+                .map(SensorGroup::getId)
+                .collect(Collectors.toSet());
+
+        // 3. 유효한 ID만 필터링 (삭제된 ID 제거)
+        List<String> validIds = requestedIds.stream()
+                .filter(existingIds::contains)
+                .collect(Collectors.toList());
+
+        // 4. 요청되지 않은 신규 SensorGroup 찾기
+        List<SensorGroup> newGroups = existingGroups.stream()
+                .filter(group -> !validIds.contains(group.getId()))
+                .toList();
+
+        // 5. 새로 추가된 ID들을 validIds 뒤에 배치
+        validIds.addAll(newGroups.stream().map(SensorGroup::getId).toList());
+
+        // 6. ID → SensorGroup 매핑
+        Map<String, SensorGroup> sensorGroupMap = existingGroups.stream()
+                .collect(Collectors.toMap(SensorGroup::getId, Function.identity()));
+
+        // 7. 변경이 필요한 SensorGroup만 업데이트
+        List<SensorGroup> updatedSensorGroups = new ArrayList<>();
+        for (int i = 0; i < validIds.size(); i++) {
+            String sensorGroupId = validIds.get(i);
+            SensorGroup sensorGroup = sensorGroupMap.get(sensorGroupId);
+
+            if (sensorGroup != null && !sensorGroup.getOrder().equals((long) i)) {
+                sensorGroup.updateOrder((long) i);
+                updatedSensorGroups.add(sensorGroup);
+            }
+        }
+
+        if (!updatedSensorGroups.isEmpty()) {
+            sensorGroupRepository.saveAll(updatedSensorGroups);
+        }
     }
 }
