@@ -5,7 +5,6 @@ import com.blinker.atom.config.error.ErrorValue;
 import com.blinker.atom.domain.appuser.*;
 import com.blinker.atom.domain.sensor.SensorGroup;
 import com.blinker.atom.domain.sensor.SensorGroupRepository;
-import jakarta.transaction.TransactionScoped;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;

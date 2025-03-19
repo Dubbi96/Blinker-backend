@@ -204,10 +204,6 @@ public class SensorLogSchedulerService {
     @Async
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     protected void fetchAndSaveLog(String eventCode, SensorGroup group) {
-        /*if (sensorLogRepository.findByEventCode(eventCode).isPresent()) {
-            log.info("❤️❤️❤️❤️❤️❤️❤️❤️️️️❤️️️️❤️️️️❤️️️️❤️️️️이미 존재하는 이벤트 코드 (스킵): {}", eventCode);
-            return;
-        }*/
         String contentInstanceUrl = String.format("%s/%s/v1_0/remoteCSE-%s/container-LoRa/contentInstance-%s",
                 baseUrl, appEui, group.getId(), eventCode);
         try {

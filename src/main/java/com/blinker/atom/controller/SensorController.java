@@ -26,13 +26,13 @@ public class SensorController {
     private final ThingPlugService thingPlugService;
 
     @GetMapping("/groups")
-    @Operation(summary = "사용자의 모든 센서 조회",description = "<b>@LoginAppUser</b> 토큰에서 가져온 AppUser가 보유한 SensorGroup의 모든 정보 조회 <br><b>🗓️ 장애센서 필터: </b><br> 1. onlyFaulty = true로 보낸다면 장애 센서만 조회<br> 2. onlyFaulty = false혹은 보내지 않는다면 전체 조회 <br> <b>📌 정렬 기준:</b> <br> 1. SensorGroup의 Order순 <br> 2. 센서 groupPositionNumber 오름차순 <br> ")
+    @Operation(summary = "사용자의 모든 센서 조회",description = "<b>@LoginAppUser</b> 토큰에서 가져온 AppUser가 보유한 SensorGroup의 모든 정보 조회 <br><b>🗓️ 장애센서 필터: </b><br> 1. onlyFaulty = true로 보낸다면 장애 센서만 조회<br> 2. onlyFaulty = false혹은 보내지 않는다면 전체 조회 <br> <b>📌 정렬 기준:</b> <br> 1. SensorGroup의 Order순 <br> 2. 센서 groupPositionNumber 오름차순 <br><br> 2025-03-20 update : ***SensorDto.needUpdate***는 생성된 후 3일 이내 update되지 않았거나 최근 update 이력이 3일내로 없는 센서에게 ***true***로 반환")
     public List<SensorGroupResponseDto> getSensorGroups(@LoginAppUser AppUser appUser, @RequestParam(defaultValue = "false") boolean onlyFaulty) {
         return sensorGroupService.getSensorGroups(appUser, onlyFaulty);
     }
 
     @GetMapping("/groups/{appUserId}")
-    @Operation(summary = "appUserId를 기입한 사용자의 모든 센서 조회 ⭐️Admin 전용", description = "<b>appUserId에 해당하는 AppUser가 보유한 SensorGroup의 모든 정보 조회</b><br> <b>🗓️ 장애센서 필터: </b><br> 1. onlyFaulty = true로 보낸다면 장애 센서만 조회<br> 2. onlyFaulty = false혹은 보내지 않는다면 전체 조회 <br> <b>📌 정렬 기준:</b> <br> 1. 센서 그룹 ID 오름차순 <br> 2. 센서 groupPositionNumber 오름차순")
+    @Operation(summary = "appUserId를 기입한 사용자의 모든 센서 조회 ⭐️Admin 전용", description = "<b>appUserId에 해당하는 AppUser가 보유한 SensorGroup의 모든 정보 조회</b><br> <b>🗓️ 장애센서 필터: </b><br> 1. onlyFaulty = true로 보낸다면 장애 센서만 조회<br> 2. onlyFaulty = false혹은 보내지 않는다면 전체 조회 <br> <b>📌 정렬 기준:</b> <br> 1. 센서 그룹 ID 오름차순 <br> 2. 센서 groupPositionNumber 오름차순<br><br> 2025-03-20 update : ***SensorDto.needUpdate***는 생성된 후 3일 이내 update되지 않았거나 최근 update 이력이 3일내로 없는 센서에게 ***true***로 반환")
     public List<SensorGroupResponseDto> getSensorGroups(@PathVariable("appUserId") Long appUserId, @RequestParam(defaultValue = "false") boolean onlyFaulty) {
         return sensorGroupService.getSensorGroupsByAppUserId(appUserId, onlyFaulty);
     }

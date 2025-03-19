@@ -2,13 +2,14 @@ package com.blinker.atom.dto.sensor;
 
 import com.blinker.atom.domain.sensor.Sensor;
 import com.blinker.atom.domain.sensor.SensorGroup;
+import com.fasterxml.jackson.annotation.JsonCreator;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * Entity To Dto로 설정하여 service 코드 간소화
@@ -63,6 +64,8 @@ public class SensorGroupResponseDto {
         private LocalDateTime serverTime;
         private String lastlyModifiedWith;
         private LocalDateTime updatedAt;
+        private LocalDateTime createdAt;
+        private boolean needUpdate = false;
         private String groupKey;
         private Long sensorCount;
 
@@ -77,6 +80,7 @@ public class SensorGroupResponseDto {
             return map;
         }
 
+        @JsonCreator
         public SensorDto(Sensor sensor) {
             this.sensorId = sensor.getId();
             this.sensorGroupId = sensor.getSensorGroup().getId();
@@ -113,9 +117,20 @@ public class SensorGroupResponseDto {
             this.lastlyModifiedWith = sensor.getLastlyModifiedWith();
             this.serverTime = sensor.getServerTime();
             this.updatedAt = sensor.getUpdatedAt();
+            this.createdAt = sensor.getCreatedAt();
             this.address = sensor.getAddress();
             this.groupKey = sensor.getSensorGroup().getGroupKey();
             this.sensorCount = sensor.getSensorGroup().getSensorCount();
+            updateNeedUpdate();
+        }
+
+        // created된지 3일 이상 지났을 경우, 현재 시간 기준 3일(72시간) 이상 지났을 경우 needUpdate = true
+        public void updateNeedUpdate() {
+            if (updatedAt == null) {
+                this.needUpdate = createdAt != null && ChronoUnit.DAYS.between(createdAt, LocalDateTime.now()) >= 3;
+                return;
+            }
+            this.needUpdate = ChronoUnit.DAYS.between(updatedAt, LocalDateTime.now()) >= 3;
         }
     }
 
@@ -130,6 +145,6 @@ public class SensorGroupResponseDto {
         this.updatedAt = sensorGroup.getUpdatedAt();
         this.sensors = sensorGroup.getSensors().stream()
                 .map(SensorDto::new)
-                .collect(Collectors.toList());
+                .toList();
     }
 }
