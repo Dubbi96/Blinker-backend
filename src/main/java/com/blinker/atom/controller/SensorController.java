@@ -88,4 +88,10 @@ public class SensorController {
     public void updateSensorGroupOrder(@RequestBody SensorGroupOrderRequestDto requestDto) {
         sensorGroupService.updateSensorGroupOrder(requestDto);
     }
+
+    @PatchMapping("/{sensorId}/relocate")
+    @Operation(summary = "단일 sensor 위치정보 update", description = "<b>단일 sensor 위도 경도 수정</b><br> 위도, 경도 수정 요청 시 kakao api 호출하여 address 정보 update 동시 수행")
+    public void relocateSensorAddress(@PathVariable("sensorId") Long sensorId, @RequestBody SensorRelocationRequestDto sensorRelocationRequestDto) {
+        sensorService.updatedSensorAddress(sensorId, sensorRelocationRequestDto);
+    }
 }

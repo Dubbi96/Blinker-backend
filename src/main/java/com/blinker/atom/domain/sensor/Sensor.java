@@ -149,4 +149,9 @@ public class Sensor {
     public void updateAddress(String address) {
         this.address = address;
     }
+
+    public void updateLocation(Double latitude, Double longitude) {
+        this.latitude = latitude;
+        this.longitude = longitude;
+    }
 }

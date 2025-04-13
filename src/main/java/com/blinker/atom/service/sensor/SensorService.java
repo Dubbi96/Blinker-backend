@@ -4,16 +4,16 @@ import com.blinker.atom.config.error.CustomException;
 import com.blinker.atom.config.error.ErrorValue;
 import com.blinker.atom.domain.appuser.*;
 import com.blinker.atom.domain.sensor.*;
-import com.blinker.atom.dto.sensor.SensorDetailResponseDto;
-import com.blinker.atom.dto.sensor.SensorLogResponseDto;
-import com.blinker.atom.dto.sensor.SensorMemoRequestDto;
-import com.blinker.atom.dto.sensor.UnregisteredSensorGroupResponseDto;
+import com.blinker.atom.dto.sensor.*;
 import com.blinker.atom.dto.thingplug.ParsedSensorLogDto;
 import com.blinker.atom.util.ParsingUtil;
+import com.blinker.atom.util.httpclientutil.HttpClientUtil;
+import com.blinker.atom.util.httpclientutil.KakaoHeaderProvider;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +31,11 @@ public class SensorService {
     private final AppUserSensorGroupRepository appUserSensorGroupRepository;
     private final AppUserSensorRepository appUserSensorRepository;
     private final AppUserRepository appUserRepository;
+
+    @Value("${kakao.rest-api-key}")
+    private String kakaoRestApiKey;
+
+    private static final String KAKAO_API_URL = "https://dapi.kakao.com/v2/local/geo/coord2address.json?x=%s&y=%s";
 
     @Transactional(readOnly = true)
     public List<SensorLogResponseDto> getSensorLogsBySensorId(Long sensorId, AppUser appUser, Integer year, Integer month, Integer day) {
@@ -132,5 +137,43 @@ public class SensorService {
                         .build());
         appUserSensor.updateMemo(sensorMemoRequestDto.getMemo());
         appUserSensorRepository.save(appUserSensor);
+    }
+
+    @Transactional
+    public void updatedSensorAddress(Long sensorId, SensorRelocationRequestDto sensorRelocationRequestDto){
+        Sensor sensor = sensorRepository.findSensorById(sensorId).orElseThrow(() -> new CustomException(ErrorValue.SENSOR_NOT_FOUND.getMessage()));
+        String url = String.format(KAKAO_API_URL, sensorRelocationRequestDto.getLongitude(), sensorRelocationRequestDto.getLatitude());
+
+        // Kakao HeaderProvider 사용
+        String response = HttpClientUtil.get(url, new KakaoHeaderProvider("KakaoAK "+kakaoRestApiKey));
+
+        if (response == null || response.isEmpty()) {
+            return;
+        }
+        // API 응답에서 주소 추출
+        sensor.updateLocation(sensorRelocationRequestDto.getLatitude(), sensorRelocationRequestDto.getLongitude());
+        String address = extractAddressFromResponse(response);
+        sensor.updateAddress(address);
+        sensorRepository.save(sensor);
+    }
+
+
+    /** Kakao 응답에서 첫 번째 주소지 파싱 */
+    private String extractAddressFromResponse(String response) {
+        try {
+            JsonNode rootNode = objectMapper.readTree(response);
+            JsonNode documentsNode = rootNode.get("documents");
+            if (documentsNode == null || !documentsNode.isArray() || documentsNode.isEmpty()) {
+                return "주소 정보 없음";
+            }
+            JsonNode firstDocument = documentsNode.get(0);
+            JsonNode addressNode = firstDocument.get("address");
+            if (addressNode == null || addressNode.get("address_name") == null) {
+                return "주소 정보 없음";
+            }
+            return addressNode.get("address_name").asText();
+        } catch (Exception e) {
+            return "주소 정보 없음";
+        }
     }
 }
