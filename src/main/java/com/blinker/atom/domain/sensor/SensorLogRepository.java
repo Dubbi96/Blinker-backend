@@ -11,6 +11,9 @@ import java.util.Optional;
 
 @Repository
 public interface SensorLogRepository extends JpaRepository<SensorLog, Long> {
+    @Query("SELECT MAX(sl.createdAt) FROM SensorLog sl")
+    LocalDateTime findMaxCreatedAt();
+
     Optional<SensorLog> findByEventCode(String eventCode);
 
     @Query("SELECT s FROM SensorLog s WHERE s.isProcessed = false AND s.createdAt >= :since")
@@ -27,4 +30,7 @@ public interface SensorLogRepository extends JpaRepository<SensorLog, Long> {
 
     @Query("SELECT sl.eventCode FROM SensorLog sl")
     List<String> findAllEventCodes();
+
+    @Query("SELECT s FROM SensorLog s WHERE s.createdAt < :cutoff")
+    List<SensorLog> findLogsOlderThan(@Param("cutoff") LocalDateTime cutoff);
 }

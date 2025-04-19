@@ -59,4 +59,11 @@ public class ScheduledServiceController {
         return "Sensor 정보 rollback 시작";
     }
 
+    @DeleteMapping("/archive-sensor-log")
+    @Operation(summary = "센서 로그 아카이브화", description = "⛔️ 로그 삭제 이루어짐. 일일 1회만 호출할 것.")
+    public String archiveSensorLog() {
+        sensorLogSchedulerService.archiveLogsBySensorDeviceNumber();
+        return "Sensor Log 이관";
+    }
+
 }

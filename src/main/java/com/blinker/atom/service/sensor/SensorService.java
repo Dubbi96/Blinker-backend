@@ -3,26 +3,41 @@ package com.blinker.atom.service.sensor;
 import com.blinker.atom.config.error.CustomException;
 import com.blinker.atom.config.error.ErrorValue;
 import com.blinker.atom.domain.appuser.*;
-import com.blinker.atom.domain.sensor.*;
-import com.blinker.atom.dto.sensor.*;
+import com.blinker.atom.domain.sensor.Sensor;
+import com.blinker.atom.domain.sensor.SensorLog;
+import com.blinker.atom.domain.sensor.SensorLogRepository;
+import com.blinker.atom.domain.sensor.SensorRepository;
+import com.blinker.atom.dto.sensor.SensorDetailResponseDto;
+import com.blinker.atom.dto.sensor.SensorLogResponseDto;
+import com.blinker.atom.dto.sensor.SensorMemoRequestDto;
+import com.blinker.atom.dto.sensor.SensorRelocationRequestDto;
 import com.blinker.atom.dto.thingplug.ParsedSensorLogDto;
+import com.blinker.atom.util.GCSUtil;
 import com.blinker.atom.util.ParsingUtil;
 import com.blinker.atom.util.httpclientutil.HttpClientUtil;
 import com.blinker.atom.util.httpclientutil.KakaoHeaderProvider;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.opencsv.CSVReader;
+import com.opencsv.exceptions.CsvValidationException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.*;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class SensorService {
 
     private final ObjectMapper objectMapper;
@@ -31,6 +46,7 @@ public class SensorService {
     private final AppUserSensorGroupRepository appUserSensorGroupRepository;
     private final AppUserSensorRepository appUserSensorRepository;
     private final AppUserRepository appUserRepository;
+    private final GCSUtil gcsUtil;
 
     @Value("${kakao.rest-api-key}")
     private String kakaoRestApiKey;
@@ -59,15 +75,73 @@ public class SensorService {
             endDate = dateRange[1];
         }
 
+        if (startDate.isBefore(LocalDateTime.now().minusDays(1))) {
+            return loadLogsFromGCS(sensor.getDeviceNumber(), startDate, endDate);
+        }
+
         // 로그 조회
-        List<SensorLog> sensorLogs = (startDate != null)
-            ? sensorLogRepository.getSensorLogsBySensorDeviceNumberAndDateRange(sensor.getDeviceNumber(), startDate, endDate)
-            : sensorLogRepository.getSensorLogsBySensorDeviceNumber(sensor.getDeviceNumber());
+        List<SensorLog> sensorLogs = sensorLogRepository.getSensorLogsBySensorDeviceNumberAndDateRange(sensor.getDeviceNumber(), startDate, endDate);
 
         return sensorLogs.stream()
                 .sorted(Comparator.comparing(SensorLog::getCreatedAt).reversed())
                 .map(this::parseSensorLog)
                 .toList();
+    }
+
+    private List<SensorLogResponseDto> loadLogsFromGCS(String deviceNumber, LocalDateTime startDate, LocalDateTime endDate) {
+        List<SensorLogResponseDto> result = new ArrayList<>();
+        LocalDate date = startDate.toLocalDate();
+
+        while (!date.isAfter(endDate.toLocalDate())) {
+            String filename = String.format("%s_%s.csv", deviceNumber, date.format(DateTimeFormatter.ofPattern("yyyyMMdd")));
+            try {
+                InputStream fileStream = gcsUtil.downloadFileFromGCS("sensor-log-archive/" + filename);
+                List<SensorLog> parsedLogs = parseCsvToSensorLogs(fileStream);
+                result.addAll(parsedLogs.stream().map(this::parseSensorLog).toList());
+            } catch (FileNotFoundException e) {
+                log.warn("파일 없음: {}", filename);
+            } catch (Exception e) {
+                log.error("GCS 파일 로딩 실패: {}", filename, e);
+            }
+            date = date.plusDays(1);
+        }
+
+        result.sort(Comparator.comparing(SensorLogResponseDto::getCreatedAt).reversed());
+        return result;
+    }
+
+    private List<SensorLog> parseCsvToSensorLogs(InputStream inputStream) throws IOException {
+        List<SensorLog> logs = new ArrayList<>();
+        DateTimeFormatter formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+
+        try (CSVReader reader = new CSVReader(new InputStreamReader(inputStream))) {
+            String[] line;
+            boolean isHeader = true;
+
+            while ((line = reader.readNext()) != null) {
+                if (isHeader) {
+                    isHeader = false;
+                    continue;
+                }
+
+                if (line.length < 7) continue;
+
+                String createdAtStr = line[6].trim();
+                String eventDetails = line[3].trim();
+                String deviceNumber = line[4].trim();
+
+                SensorLog log = new SensorLog();
+                log.setCreatedAt(LocalDateTime.parse(createdAtStr, formatter));
+                log.setEventDetails(eventDetails);
+                log.setSensorDeviceNumber(deviceNumber);
+
+                logs.add(log);
+            }
+        } catch (CsvValidationException e) {
+            throw new IOException("CSV validation error", e);
+        }
+
+        return logs;
     }
 
     private void validateDateFilter(Integer year, Integer month, Integer day) {

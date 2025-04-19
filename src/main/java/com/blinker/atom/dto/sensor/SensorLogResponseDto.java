@@ -26,7 +26,7 @@ public class SensorLogResponseDto {
         this.createdAt = sensorLog.getCreatedAt();
         this.eventCode = sensorLog.getEventCode();
         this.eventDetails = sensorLog.getEventDetails();
-        this.sensorGroupId = sensorLog.getSensorGroup().getId();
+        this.sensorGroupId = sensorLog.getSensorGroup() != null ? sensorLog.getSensorGroup().getId() : null;
         this.sensorDeviceNumber = sensorLog.getSensorDeviceNumber();
         this.eventLog = eventLog;
         this.faultInformation = faultInformation;
@@ -35,7 +35,7 @@ public class SensorLogResponseDto {
     public SensorLogResponseDto(SensorLog sensorLog) {
         this.sensorLogId = sensorLog.getId();
         this.eventCode = sensorLog.getEventCode();
-        this.sensorGroupId = sensorLog.getSensorGroup().getId();
+        this.sensorGroupId = sensorLog.getSensorGroup() != null ? sensorLog.getSensorGroup().getId() : null;
         this.sensorDeviceNumber = sensorLog.getSensorDeviceNumber();
     }
 

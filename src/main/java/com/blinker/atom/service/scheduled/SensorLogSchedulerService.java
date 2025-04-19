@@ -3,6 +3,7 @@ package com.blinker.atom.service.scheduled;
 import com.blinker.atom.config.error.CustomException;
 import com.blinker.atom.domain.sensor.*;
 import com.blinker.atom.dto.thingplug.ParsedSensorLogDto;
+import com.blinker.atom.util.GCSUtil;
 import com.blinker.atom.util.ParsingUtil;
 import com.blinker.atom.util.XmlUtil;
 import com.blinker.atom.util.httpclientutil.HttpClientUtil;
@@ -16,14 +17,20 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpClientErrorException;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
@@ -33,6 +40,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -43,6 +51,7 @@ public class SensorLogSchedulerService {
     private final SensorLogRepository sensorLogRepository;
     private final SensorRepository sensorRepository;
     private final ObjectMapper objectMapper;
+    private final GCSUtil gcsUtil;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -146,6 +155,15 @@ public class SensorLogSchedulerService {
     @Transactional(readOnly = true)
     public void fetchAndSaveSensorLogs() {
         log.info("🔹 Sensor Log 스케줄러 실행...");
+
+        LocalDateTime lastSavedLogTime = sensorLogRepository.findMaxCreatedAt();
+        if (lastSavedLogTime == null) {
+            lastSavedLogTime = LocalDateTime.now().minusHours(12);
+            log.warn("sensor_log 테이블이 비어있습니다. 현재 시각을 기준으로 설정합니다: {}", lastSavedLogTime);
+        } else {
+            log.info("마지막 저장된 로그 시각: {}", lastSavedLogTime);
+        }
+
         Set<String> existingEventCodes = new HashSet<>(sensorLogRepository.findAllEventCodes());
 
         // 모든 sensor_group 조회
@@ -173,7 +191,7 @@ public class SensorLogSchedulerService {
                 }
             }
             // SensorLog 저장 (중복 방지)
-            saveSensorLogs(newEventCodes, group);
+            saveSensorLogs(newEventCodes, group, lastSavedLogTime);
         }
     }
 
@@ -190,26 +208,28 @@ public class SensorLogSchedulerService {
         return result;
     }
 
-    @Transactional
-    protected void saveSensorLogs(List<String> eventCodes, SensorGroup group) {
-        // Hibernate 세션에서 관리되는 상태로 유지하기 위해 merge()
+    protected void saveSensorLogs(List<String> eventCodes, SensorGroup group, LocalDateTime lastSavedTime) {
         List<CompletableFuture<Void>> futures = eventCodes.stream()
-            .map(eventCode -> CompletableFuture.runAsync(() -> fetchAndSaveLog(eventCode, group), executorService))
+            .map(eventCode -> CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        fetchAndSaveLog(eventCode, group, lastSavedTime);
+                    } catch (Exception e) {
+                        log.error("❌ fetchAndSaveLog 처리 실패: eventCode = {}", eventCode, e);
+                    }
+                }, executorService))
             .toList();
 
-        // 모든 요청이 완료될 때까지 대기
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
     }
 
-    @Async
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    protected void fetchAndSaveLog(String eventCode, SensorGroup group) {
+    protected void fetchAndSaveLog(String eventCode, SensorGroup group, LocalDateTime lastSavedTime) {
         String contentInstanceUrl = String.format("%s/%s/v1_0/remoteCSE-%s/container-LoRa/contentInstance-%s",
                 baseUrl, appEui, group.getId(), eventCode);
         try {
             String contentInstanceResponse = HttpClientUtil.get(contentInstanceUrl, new ThingPlugHeaderProvider(origin, uKey, requestId));
             String jsonEventDetail = XmlUtil.convertXmlToJson(contentInstanceResponse);
-
             SensorGroup existingGroup = sensorGroupRepository.findById(group.getId()).orElse(null);
             if (existingGroup == null) {
                 log.warn("⚠SensorGroup {}가 존재하지 않음. 새로운 그룹을 삽입하지 않음.", group.getId());
@@ -221,7 +241,13 @@ public class SensorLogSchedulerService {
                 log.error("❌ JSON 응답에 'con' 필드가 없음. eventCode: {}", eventCode);
                 return;
             }
+
             LocalDateTime eventDateTime = OffsetDateTime.parse(jsonNode.get("ct").asText(), DateTimeFormatter.ISO_OFFSET_DATE_TIME).toLocalDateTime();
+            if (lastSavedTime != null && !eventDateTime.isAfter(lastSavedTime)) {
+                log.info("🕒 이미 저장된 시간 이전 로그: {}, 저장 생략", eventCode);
+                return;
+            }
+
             // 🌟 'con' 문자열에서 2~10번째 문자 추출하여 sensorDeviceNumber에 저장
             String conValue = jsonNode.get("con").asText();
             String sensorDeviceNumber = (conValue.length() >= 10) ? conValue.substring(2, 10) : "";
@@ -539,6 +565,69 @@ public class SensorLogSchedulerService {
         } catch (Exception e) {
             return "주소 정보 없음";
         }
+    }
+
+    @Transactional
+    public void archiveLogsBySensorDeviceNumber() {
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(1);
+        List<SensorLog> logs = sensorLogRepository.findLogsOlderThan(cutoff);
+
+        if (logs.isEmpty()) {
+            log.info("✅ 보관할 로그 없음.");
+            return;
+        }
+
+        // 1. 디바이스 + 날짜 기준으로 그룹핑
+        Map<String, Map<LocalDate, List<SensorLog>>> grouped = logs.stream()
+            .filter(log -> log.getSensorDeviceNumber() != null)
+            .collect(Collectors.groupingBy(
+                SensorLog::getSensorDeviceNumber,
+                Collectors.groupingBy(log -> log.getCreatedAt().toLocalDate())
+            ));
+
+        // 2. 각 그룹(디바이스+날짜)별 파일 생성 및 업로드
+        for (Map.Entry<String, Map<LocalDate, List<SensorLog>>> deviceEntry : grouped.entrySet()) {
+            String deviceNumber = deviceEntry.getKey();
+
+            for (Map.Entry<LocalDate, List<SensorLog>> dateEntry : deviceEntry.getValue().entrySet()) {
+                LocalDate date = dateEntry.getKey();
+                List<SensorLog> dateLogs = dateEntry.getValue();
+
+                String filename = String.format("%s_%s.csv",
+                        deviceNumber,
+                        date.format(DateTimeFormatter.ofPattern("yyyyMMdd")));
+
+                StringBuilder sb = getStringBuilder(dateLogs);
+
+                try (InputStream inputStream = new ByteArrayInputStream(sb.toString().getBytes())) {
+                    gcsUtil.uploadFileToGCS("sensor-log-archive", filename, inputStream, null);
+                    sensorLogRepository.deleteAll(dateLogs);
+                } catch (IOException e) {
+                    log.error("❌ 업로드 실패 - {} ({})", deviceNumber, date, e);
+                }
+            }
+        }
+    }
+
+    private StringBuilder getStringBuilder(List<SensorLog> logs) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("id,sensor_group_id,event_code,event_details,sensor_device_number,is_processed,created_at\n");
+
+        for (SensorLog log : logs) {
+            sb.append(log.getId()).append(",");
+            sb.append(safeString(log.getSensorGroup().getId())).append(",");
+            sb.append(safeString(log.getEventCode())).append(",");
+            sb.append("\"").append(log.getEventDetails().replace("\"", "\"\"")).append("\",");
+            sb.append(log.getSensorDeviceNumber()).append(",");
+            sb.append("true").append(",");
+            sb.append(log.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)).append("\n");
+        }
+
+        return sb;
+    }
+
+    private String safeString(Object value) {
+        return value == null ? "" : value.toString();
     }
 
     @PreDestroy

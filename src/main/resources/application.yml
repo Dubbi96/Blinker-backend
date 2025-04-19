@@ -22,6 +22,12 @@ spring:
 kakao:
   rest-api-key : a75e7e6394cc4b75c1f5545a4212fa7e
 
+gcs:
+  project:
+    id: dubbi-blinker
+  bucket:
+    name: dubbi-blinker
+
 thingplug:
   base:
     url: http://thingplugpf.sktiot.com:9000

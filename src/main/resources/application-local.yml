@@ -1,0 +1,3 @@
+gcs:
+  credentials:
+    path: key/blinker-backend-key.json
