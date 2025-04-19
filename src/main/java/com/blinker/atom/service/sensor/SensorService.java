@@ -74,11 +74,14 @@ public class SensorService {
             startDate = dateRange[0];
             endDate = dateRange[1];
         }
-
-        if (startDate.toLocalDate().isBefore(LocalDate.now())) {
+        if(startDate == null){
+            startDate = LocalDateTime.now().minusDays(1);
+            endDate = LocalDateTime.now();
+        }
+        if (startDate.toLocalDate().isBefore(LocalDate.now().minusDays(1))) {
             return loadLogsFromGCS(sensor.getDeviceNumber(), startDate, endDate);
         }
-
+        log.info("startDate: {}, endDate: {}", startDate, endDate);
         // 로그 조회
         List<SensorLog> sensorLogs = sensorLogRepository.getSensorLogsBySensorDeviceNumberAndDateRange(sensor.getDeviceNumber(), startDate, endDate);
 
