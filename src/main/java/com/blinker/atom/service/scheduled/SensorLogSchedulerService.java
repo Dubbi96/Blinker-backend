@@ -17,11 +17,8 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -569,11 +566,11 @@ public class SensorLogSchedulerService {
 
     @Transactional
     public void archiveLogsBySensorDeviceNumber() {
-        LocalDateTime cutoff = LocalDateTime.now().minusDays(1);
+        LocalDateTime cutoff = LocalDateTime.now().minusHours(2);
         List<SensorLog> logs = sensorLogRepository.findLogsOlderThan(cutoff);
 
         if (logs.isEmpty()) {
-            log.info("✅ 보관할 로그 없음.");
+            log.info("보관할 로그 없음.");
             return;
         }
 

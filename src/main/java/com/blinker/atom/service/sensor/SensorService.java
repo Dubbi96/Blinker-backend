@@ -75,7 +75,7 @@ public class SensorService {
             endDate = dateRange[1];
         }
 
-        if (startDate.isBefore(LocalDateTime.now().minusDays(1))) {
+        if (startDate.toLocalDate().isBefore(LocalDate.now())) {
             return loadLogsFromGCS(sensor.getDeviceNumber(), startDate, endDate);
         }
 
