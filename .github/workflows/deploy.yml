@@ -54,7 +54,7 @@ jobs:
           --add-cloudsql-instances=blinker-db:asia-northeast3:blinker-atom-db \
           --set-env-vars SPRING_PROFILES_ACTIVE=prod \
           --set-env-vars GOOGLE_APPLICATION_CREDENTIALS=/app/blinker-backend-key.json \
-          --set-env-vars THINGPLUG_UKEY=${{ secrets.THINGPLUG_UKEY }},JWT_SECRET=${{ secrets.JWT_SECRET }},KAKAO_REST_KEY=${{ secrets.KAKAO_REST_KEY }},DISCORD_WEBHOOK=${{ secrets.DISCORD_WEBHOOK }},DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          --set-env-vars "THINGPLUG_UKEY=${{ secrets.THINGPLUG_UKEY }},JWT_SECRET=${{ secrets.JWT_SECRET }},KAKAO_REST_KEY=${{ secrets.KAKAO_REST_KEY }},DISCORD_WEBHOOK=${{ secrets.DISCORD_WEBHOOK }},DB_PASSWORD=${{ secrets.DB_PASSWORD }}"
 
     - name: 종료 시간 기록
       id: end_time
