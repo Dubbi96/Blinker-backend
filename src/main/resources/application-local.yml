@@ -1,3 +1,24 @@
 gcs:
   credentials:
     path: key/blinker-backend-key.json
+
+spring:
+  config:
+    activate:
+      on-profile: local
+  datasource:
+    hikari:
+      password: "{62fN9<TefKgbHd0"
+  jwt:
+    secret-key: 697zRu8XSLLiiG-lXyCki76NiMv2peAN3ceW6Y5ILT0rHzsO3716jnEvYAegxDlHOAvTRP4pXI9B_aEPnkvsbw
+
+kakao:
+  rest-api-key: a75e7e6394cc4b75c1f5545a4212fa7e
+
+logging:
+  discord:
+    webhook-url: https://discord.com/api/webhooks/1341807531189866606/_4P6bPacVts_kXTnNW2M1wMngmkgRGWBguZHQQ1R8RllJS9zcCtGaXiav2fIvhPbyju-
+
+hingplug:
+  headers:
+    uKey: YVlMR2V6cEpiVkV1VVMyWlFuN3F5YjAwSGVidGxSdzk2eWVWNU9GQnRReW50V3R2QWIxajgyakVYc3hlTTErcQ==

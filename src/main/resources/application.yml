@@ -13,14 +13,14 @@ spring:
   jackson:
     time-zone: Asia/Seoul
   jwt:
-    secret-key: 697zRu8XSLLiiG-lXyCki76NiMv2peAN3ceW6Y5ILT0rHzsO3716jnEvYAegxDlHOAvTRP4pXI9B_aEPnkvsbw
+    secret-key: ${JWT_SECRET}
   servlet:
     multipart:
       maxFileSize: 100GB
       maxRequestSize: 100GB
 
 kakao:
-  rest-api-key : a75e7e6394cc4b75c1f5545a4212fa7e
+  rest-api-key : ${KAKAO_REST_KEY}
 
 gcs:
   project:
@@ -36,7 +36,7 @@ thingplug:
   headers:
     x-m2m-origin: ThingPlug
     x-m2m-ri: 123456789
-    uKey: YVlMR2V6cEpiVkV1VVMyWlFuN3F5YjAwSGVidGxSdzk2eWVWNU9GQnRReW50V3R2QWIxajgyakVYc3hlTTErcQ==
+    uKey: ${THINGPLUG_UKEY}
 
 server:
   tomcat:
@@ -59,5 +59,5 @@ springdoc:
 
 logging:
   discord:
-    webhook-url: https://discord.com/api/webhooks/1341807531189866606/_4P6bPacVts_kXTnNW2M1wMngmkgRGWBguZHQQ1R8RllJS9zcCtGaXiav2fIvhPbyju-
+    webhook-url: ${DISCORD_WEBHOOK}
   config: classpath:logback.xml

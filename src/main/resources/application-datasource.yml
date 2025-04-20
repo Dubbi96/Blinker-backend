@@ -29,7 +29,7 @@ spring:
   datasource:
     hikari:
       username: postgres
-      password: "{62fN9<TefKgbHd0"
+      password: ${DB_PASSWORD}
       jdbc-url: jdbc:postgresql://google/blinker
       driver-class-name: org.postgresql.Driver
       data-source-properties:
