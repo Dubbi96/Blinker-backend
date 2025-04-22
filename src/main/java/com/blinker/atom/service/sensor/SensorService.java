@@ -65,10 +65,8 @@ public class SensorService {
             throw new CustomException(ErrorValue.UNAUTHORIZED_SERVICE.getMessage());
         }
 
-        // 날짜 필터 검증
         validateDateFilter(year, month, day);
 
-        // 날짜 범위 설정
         LocalDateTime startDate = null;
         LocalDateTime endDate = null;
         if (year != null) {
@@ -76,20 +74,39 @@ public class SensorService {
             startDate = dateRange[0];
             endDate = dateRange[1];
         }
-        if(startDate == null){
+        if (startDate == null) {
             startDate = LocalDateTime.of(LocalDate.now().getYear(), LocalDate.now().getMonth(), LocalDate.now().getDayOfMonth(), 0, 0);
             endDate = LocalDateTime.now();
         }
-        if (!startDate.toLocalDate().isAfter(LocalDate.of(LocalDate.now().getYear(), LocalDate.now().getMonth(), LocalDate.now().getDayOfMonth()))) {
-            return loadLogsFromGCS(sensor.getDeviceNumber(), startDate, endDate);
-        }
-        log.info("startDate: {}, endDate: {}", startDate, endDate);
-        // 로그 조회
-        List<SensorLog> sensorLogs = sensorLogRepository.getSensorLogsBySensorDeviceNumberAndDateRange(sensor.getDeviceNumber(), startDate, endDate);
 
-        return sensorLogs.stream()
-                .sorted(Comparator.comparing(SensorLog::getCreatedAt).reversed())
-                .map(this::parseSensorLog)
+        LocalDate today = LocalDate.now();
+        List<SensorLogResponseDto> totalLogs = new ArrayList<>();
+
+        // 오늘보다 이전 로그는 GCS에서 조회
+        if (startDate.toLocalDate().isBefore(today)) {
+            LocalDateTime gcsEndDate = endDate.toLocalDate().isBefore(today)
+                    ? endDate
+                    : today.minusDays(1).atTime(LocalTime.MAX);
+            totalLogs.addAll(loadLogsFromGCS(sensor.getDeviceNumber(), startDate, gcsEndDate));
+        }
+
+        // 오늘 날짜 로그는 DB에서 조회
+        if (!endDate.toLocalDate().isBefore(today)) {
+            LocalDateTime dbStart = startDate.toLocalDate().isBefore(today)
+                    ? today.atStartOfDay()
+                    : startDate;
+            LocalDateTime dbEnd = endDate.isAfter(LocalDateTime.now()) ? LocalDateTime.now() : endDate;
+
+            List<SensorLog> sensorLogs = sensorLogRepository.getSensorLogsBySensorDeviceNumberAndDateRange(
+                    sensor.getDeviceNumber(), dbStart, dbEnd
+            );
+            totalLogs.addAll(sensorLogs.stream()
+                    .map(this::parseSensorLog)
+                    .toList());
+        }
+
+        return totalLogs.stream()
+                .sorted(Comparator.comparing(SensorLogResponseDto::getCreatedAt).reversed())
                 .toList();
     }
 
