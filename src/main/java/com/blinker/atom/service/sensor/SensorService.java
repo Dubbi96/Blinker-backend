@@ -30,6 +30,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -75,10 +77,10 @@ public class SensorService {
             endDate = dateRange[1];
         }
         if(startDate == null){
-            startDate = LocalDateTime.now().minusDays(1);
+            startDate = LocalDateTime.of(LocalDate.now().getYear(), LocalDate.now().getMonth(), LocalDate.now().getDayOfMonth(), 0, 0);
             endDate = LocalDateTime.now();
         }
-        if (startDate.toLocalDate().isBefore(LocalDate.now().minusDays(1))) {
+        if (!startDate.toLocalDate().isAfter(LocalDate.of(LocalDate.now().getYear(), LocalDate.now().getMonth(), LocalDate.now().getDayOfMonth()))) {
             return loadLogsFromGCS(sensor.getDeviceNumber(), startDate, endDate);
         }
         log.info("startDate: {}, endDate: {}", startDate, endDate);
@@ -158,17 +160,17 @@ public class SensorService {
         LocalDateTime endDate;
 
         if (month == null && day == null) {
-            // 연도별 필터
             startDate = LocalDateTime.of(year, 1, 1, 0, 0);
-            endDate = startDate.plusYears(1);
+            endDate = LocalDateTime.of(year, 12, 31, 23, 59, 59, 999_999_999);
         } else if (day == null) {
-            // 월별 필터
+            YearMonth ym = YearMonth.of(year, month);
+            LocalDate lastDayOfMonth = ym.atEndOfMonth();
             startDate = LocalDateTime.of(year, month, 1, 0, 0);
-            endDate = startDate.plusMonths(1);
+            endDate = LocalDateTime.of(lastDayOfMonth, LocalTime.MAX);
         } else {
-            // 일별 필터
-            startDate = LocalDateTime.of(year, month, day, 0, 0);
-            endDate = startDate.plusDays(1);
+            LocalDate date = LocalDate.of(year, month, day);
+            startDate = date.atStartOfDay();
+            endDate = date.atTime(LocalTime.MAX);
         }
 
         return new LocalDateTime[]{startDate, endDate};
