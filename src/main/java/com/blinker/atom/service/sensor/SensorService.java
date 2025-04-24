@@ -195,13 +195,10 @@ public class SensorService {
 
     private SensorLogResponseDto parseSensorLog(SensorLog sensorLog) {
         try {
-            if (sensorLog.getEventDetails() == null) {
-                return new SensorLogResponseDto(sensorLog);
-            }
             JsonNode jsonNode = objectMapper.readTree(sensorLog.getEventDetails());
             String eventLog = jsonNode.get("con").asText();
             ParsedSensorLogDto parsedSensorLogDto = ParsingUtil.parseMessage(eventLog);
-            return new SensorLogResponseDto(sensorLog, eventLog, parsedSensorLogDto.getCmd(), parsedSensorLogDto.getFaultInformation());
+            return new SensorLogResponseDto(sensorLog, parsedSensorLogDto.getCmd(), parsedSensorLogDto.getButtonCount(), parsedSensorLogDto.getPositionGuideCount(), parsedSensorLogDto.getSignalGuideCount(), parsedSensorLogDto.getFaultInformation());
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException("Json Parsing에 실패하였습니다.", e);
         }
