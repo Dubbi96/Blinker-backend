@@ -11,11 +11,13 @@ import java.util.List;
 @NoArgsConstructor
 public class SignInResponseDto {
     private Long appUserId;
+    private String userId;
     private String accessToken;
     private List<Role> roles;
 
     public SignInResponseDto(AppUser appUser, String accessToken) {
         this.appUserId = appUser.getId();
+        this.userId = appUser.getUserId();
         this.roles = appUser.getRoles();
         this.accessToken = accessToken;
     }
