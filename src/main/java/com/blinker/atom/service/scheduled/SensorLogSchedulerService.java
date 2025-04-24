@@ -242,7 +242,6 @@ public class SensorLogSchedulerService {
 
             LocalDateTime eventDateTime = OffsetDateTime.parse(jsonNode.get("ct").asText(), DateTimeFormatter.ISO_OFFSET_DATE_TIME).toLocalDateTime();
             if (lastSavedTime != null && !eventDateTime.isAfter(lastSavedTime)) {
-                log.info("🕒 이미 저장된 시간 이전 로그: {}, 저장 생략", eventCode);
                 return;
             }
 

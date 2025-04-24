@@ -96,7 +96,6 @@ public class WebSecurityConfig {
                                 .requestMatchers(HttpMethod.PUT, "auth/user/**").hasAuthority("ADMIN")
                                 .requestMatchers("scheduler/**", "skt/**").permitAll()
                                 .requestMatchers(HttpMethod.POST, "app-user/**").hasAuthority("ADMIN")
-                                .requestMatchers("/project/**", "/corporation/**", "/qna/**", "/faq/**", "/file/**").hasAnyAuthority("VIEWER", "ADMIN")
                         .anyRequest().authenticated()
                 ).cors(it -> {})
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

@@ -157,9 +157,6 @@ public class ThingPlugService {
         + "<exe>true</exe>"
         + "<exra>%s</exra>"
         + "</m2m:mgc>", encodedContent);
-
-        log.info("Creating contentInstance at URL: {}", url);
-        log.info("Creating contentInstance: {}", body);
         Sensor sensor = sensorRepository.getSensorByDeviceNumberAndGroupPositionNumber(request.getDeviceNumber(),Long.parseLong(String.valueOf(request.getGroupPositionNumber())))
                 .orElseThrow(() -> new CustomException("데이터베이스에 존재하지 않는 센서 입니다."));
         String response = HttpClientUtil.put(url, new ThingPlugHeaderProvider(origin, uKey, requestId), body);

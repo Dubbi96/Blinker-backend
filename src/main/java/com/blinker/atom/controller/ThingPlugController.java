@@ -28,8 +28,6 @@ public class ThingPlugController {
     @PostMapping(consumes = {"application/json", "application/xml"})
     public ResponseEntity<String> receiveThingPlugMessage(@RequestBody String payload,
                                                           @RequestHeader(value = "Content-Type") String contentType) {
-        log.info("📩 ThingPlug에서 메시지 수신: " + payload);
-
         try {
             String data;
             if (contentType.contains("json")) {
