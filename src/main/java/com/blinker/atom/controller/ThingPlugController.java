@@ -62,12 +62,11 @@ public class ThingPlugController {
     public ParsedSensorLogDto getLatestContent(@PathVariable String sensorId) {
         try {
             // 1. 가장 최근 Content Instance 가져오기
-            ParsedSensorLogDto parsedData = thingPlugService.getLatestContent(sensorId);
 
             /** 2. 모든 Content Instance 가져오기
             String allContentInstances = thingPlugService.getAllContentInstances(remoteCseId);
              **/
-            return parsedData;
+            return thingPlugService.getLatestContent(sensorId);
         } catch (Exception e) {
             throw new IllegalArgumentException(e.getMessage());
         }

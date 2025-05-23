@@ -628,6 +628,57 @@ public class SensorLogSchedulerService {
         return value == null ? "" : value.toString();
     }
 
+    @Transactional
+    public void fetchAndUpdateLogsForSensorGroup(String sensorGroupId) {
+        log.info("🔹 SensorGroup '{}'에 대해 SensorLog 수집 및 업데이트 시작", sensorGroupId);
+
+        SensorGroup group = sensorGroupRepository.findById(sensorGroupId)
+            .orElseThrow(() -> new CustomException("해당 SensorGroup을 찾을 수 없습니다: " + sensorGroupId));
+
+        LocalDateTime lastSavedLogTime = sensorLogRepository.findMaxCreatedAtBySensorGroupId(sensorGroupId).orElseThrow(() -> new CustomException("해당 기기에는 로그가 존재하지 않습니다."));
+        if (lastSavedLogTime == null) {
+            lastSavedLogTime = LocalDateTime.now().minusHours(12);
+            log.warn("sensor_log 테이블이 비어있습니다. 현재 시각을 기준으로 설정합니다: {}", lastSavedLogTime);
+        }
+
+        Set<String> existingEventCodes = new HashSet<>(sensorLogRepository.findAllEventCodesBySensorGroupId(sensorGroupId));
+
+        // 👉 컨텐츠 인스턴스 조회 URL 구성
+        String url = String.format("%s/%s/v1_0/remoteCSE-%s/container-LoRa?fu=1&ty=4", baseUrl, appEui, sensorGroupId);
+        String response = HttpClientUtil.get(url, new ThingPlugHeaderProvider(origin, uKey, requestId));
+        if (response == null || response.isEmpty()) {
+            log.warn("❌ API 응답이 없음. SensorGroup: {}", sensorGroupId);
+            return;
+        }
+
+        // 👉 contentInstance 목록에서 eventCode 추출
+        List<String> eventCodes = extractContentInstanceUri(response);
+        List<String> newEventCodes = eventCodes.stream()
+            .filter(code -> !existingEventCodes.contains(code))
+            .toList();
+
+        if (newEventCodes.isEmpty()) {
+            log.info("새로운 로그가 없습니다.");
+            return;
+        }
+
+        // 👉 비동기로 SensorLog 저장
+        saveSensorLogs(newEventCodes, group, lastSavedLogTime);
+
+        // 👉 저장된 로그 중 미처리된 로그만 처리
+        updateSensorFromSensorLogs(sensorGroupId);
+    }
+
+    @Transactional
+    public void updateSensorFromSensorLogs(String sensorGroupId) {
+        log.info("🔄 SensorGroup '{}'에 대한 미처리 SensorLog 처리 시작", sensorGroupId);
+        List<SensorLog> sensorLogs = sensorLogRepository.findUnprocessedLogsBySensorGroupId(sensorGroupId, LocalDateTime.now().minusHours(24));
+        for (SensorLog log : sensorLogs) {
+            processSensorLog(log);
+        }
+        log.info("✅ SensorGroup '{}' 로그 처리 완료", sensorGroupId);
+    }
+
     @PreDestroy
     public void shutdownExecutor() {
         log.info("🛑 Shutting down ExecutorService...");

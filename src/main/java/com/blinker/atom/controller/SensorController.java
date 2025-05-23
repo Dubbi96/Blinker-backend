@@ -4,13 +4,16 @@ import com.blinker.atom.config.security.LoginAppUser;
 import com.blinker.atom.domain.appuser.AppUser;
 import com.blinker.atom.dto.sensor.*;
 import com.blinker.atom.dto.thingplug.SensorUpdateRequestDto;
+import com.blinker.atom.service.scheduled.SensorLogSchedulerService;
 import com.blinker.atom.service.sensor.SensorGroupService;
 import com.blinker.atom.service.sensor.SensorService;
 import com.blinker.atom.service.thingplug.ThingPlugService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -24,6 +27,7 @@ public class SensorController {
     private final SensorService sensorService;
     private final SensorGroupService sensorGroupService;
     private final ThingPlugService thingPlugService;
+    private final SensorLogSchedulerService sensorLogSchedulerService;
 
     @GetMapping("/groups")
     @Operation(summary = "사용자의 모든 센서 조회",description = "<b>@LoginAppUser</b> 토큰에서 가져온 AppUser가 보유한 SensorGroup의 모든 정보 조회 <br><b>🗓️ 장애센서 필터: </b><br> 1. onlyFaulty = true로 보낸다면 장애 센서만 조회<br> 2. onlyFaulty = false혹은 보내지 않는다면 전체 조회 <br> <b>📌 정렬 기준:</b> <br> 1. SensorGroup의 Order순 <br> 2. 센서 groupPositionNumber 오름차순 <br><br> 2025-03-20 update : ***SensorDto.needUpdate***는 생성된 후 3일 이내 update되지 않았거나 최근 update 이력이 3일내로 없는 센서에게 ***true***로 반환")
@@ -93,5 +97,20 @@ public class SensorController {
     @Operation(summary = "단일 sensor 위치정보 update", description = "<b>단일 sensor 위도 경도 수정</b><br> 위도, 경도 수정 요청 시 kakao api 호출하여 address 정보 update 동시 수행")
     public void relocateSensorAddress(@PathVariable("sensorId") Long sensorId, @RequestBody SensorRelocationRequestDto sensorRelocationRequestDto) {
         sensorService.updatedSensorAddress(sensorId, sensorRelocationRequestDto);
+    }
+
+    @PostMapping("/log/{sensorGroupId}")
+    @Operation(summary = "특정 센서의 SensorGroup의 로그 수집", description = "⛔️ 멀티 쓰레드 환경에서 동작하므로 사용에 주의 요함")
+    public void fetchSensorLog(@NotNull @PathVariable("sensorGroupId") String sensorGroupId) {
+        sensorLogSchedulerService.fetchAndUpdateLogsForSensorGroup(sensorGroupId);
+    }
+
+    @PutMapping("/log/{sensorGroupId}")
+    @Operation(summary = "단일 sensorGroup G명령 전송",
+               description = "<b>고정된 command 내용을 가진 외부 API 호출</b><br>센서 그룹 ID 기반 PUT 요청 전송")
+    public void sendFixedCommandToSensorGroup(
+            @Parameter(example = "0000102140ca63fffe1df1ce")
+            @PathVariable String sensorGroupId) {
+        thingPlugService.sendFixedGCommand(sensorGroupId);
     }
 }

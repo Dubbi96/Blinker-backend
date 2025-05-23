@@ -200,4 +200,23 @@ public class ThingPlugService {
         sensorRepository.save(updatedSensor);
         return response;
     }
+
+    public void sendFixedGCommand(String sensorGroupId) {
+        String fixedHex = "470000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
+        String url = String.format("%s/%s/v1_0/mgmtCmd-%s_extDevMgmt", baseUrl, appEui, sensorGroupId);
+
+        String body = String.format(
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+            + "<m2m:mgc xmlns:m2m=\"http://www.onem2m.org/xml/protocols\" "
+            + "xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">"
+            + "<exe>true</exe>"
+            + "<exra>%s</exra>"
+            + "</m2m:mgc>", fixedHex);
+
+        try {
+            HttpClientUtil.put(url, new ThingPlugHeaderProvider(origin, uKey, requestId), body);
+        } catch (Exception e) {
+            throw new CustomException("ThingPlug 외부 요청에 실패하였습니다.");
+        }
+    }
 }

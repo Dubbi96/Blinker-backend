@@ -16,6 +16,7 @@ import com.blinker.atom.util.GCSUtil;
 import com.blinker.atom.util.ParsingUtil;
 import com.blinker.atom.util.httpclientutil.HttpClientUtil;
 import com.blinker.atom.util.httpclientutil.KakaoHeaderProvider;
+import com.blinker.atom.util.httpclientutil.ThingPlugHeaderProvider;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
