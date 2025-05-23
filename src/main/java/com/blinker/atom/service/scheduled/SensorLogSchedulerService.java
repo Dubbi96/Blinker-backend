@@ -564,18 +564,23 @@ public class SensorLogSchedulerService {
         }
     }
 
+    /**
+     * 2시간 이전 로그를 센서 디바이스 번호/날짜별로 GCS로 보관하고 DB에서 삭제
+     * 1. 조회(JPA)는 트랜잭션(readOnly) 내에서 수행
+     * 2. 파일 업로드/삭제는 트랜잭션 없이 수행
+     */
     @Async
-    @Transactional
     public void archiveLogsBySensorDeviceNumber() {
         LocalDateTime cutoff = LocalDateTime.now().minusHours(2);
-        List<SensorLog> logs = sensorLogRepository.findLogsOlderThan(cutoff);
+        // 1. JPA로 오래된 로그를 트랜잭션(readOnly) 내에서 조회
+        List<SensorLog> logs = fetchLogsOlderThanCutoff(cutoff);
 
         if (logs.isEmpty()) {
             log.info("보관할 로그 없음.");
             return;
         }
 
-        // 1. 디바이스 + 날짜 기준으로 그룹핑
+        // 2. 디바이스 + 날짜 기준으로 그룹핑
         Map<String, Map<LocalDate, List<SensorLog>>> grouped = logs.stream()
             .filter(log -> log.getSensorDeviceNumber() != null)
             .collect(Collectors.groupingBy(
@@ -583,28 +588,46 @@ public class SensorLogSchedulerService {
                 Collectors.groupingBy(log -> log.getCreatedAt().toLocalDate())
             ));
 
-        // 2. 각 그룹(디바이스+날짜)별 파일 생성 및 업로드
+        // 3. 각 그룹(디바이스+날짜)별 파일 생성 및 업로드/삭제를 병렬로 처리
+        List<CompletableFuture<Void>> futures = new ArrayList<>();
         for (Map.Entry<String, Map<LocalDate, List<SensorLog>>> deviceEntry : grouped.entrySet()) {
             String deviceNumber = deviceEntry.getKey();
-
             for (Map.Entry<LocalDate, List<SensorLog>> dateEntry : deviceEntry.getValue().entrySet()) {
                 LocalDate date = dateEntry.getKey();
                 List<SensorLog> dateLogs = dateEntry.getValue();
 
-                String filename = String.format("%s_%s.csv",
-                        deviceNumber,
-                        date.format(DateTimeFormatter.ofPattern("yyyyMMdd")));
-
-                StringBuilder sb = getStringBuilder(dateLogs);
-
-                try (InputStream inputStream = new ByteArrayInputStream(sb.toString().getBytes())) {
-                    gcsUtil.uploadFileToGCS("sensor-log-archive", filename, inputStream, null);
-                    sensorLogRepository.deleteAll(dateLogs);
-                } catch (IOException e) {
-                    log.error("❌ 업로드 실패 - {} ({})", deviceNumber, date, e);
-                }
+                futures.add(CompletableFuture.runAsync(() -> {
+                    String filename = String.format("%s_%s.csv",
+                            deviceNumber,
+                            date.format(DateTimeFormatter.ofPattern("yyyyMMdd")));
+                    StringBuilder sb = getStringBuilder(dateLogs);
+                    try (InputStream inputStream = new ByteArrayInputStream(sb.toString().getBytes())) {
+                        gcsUtil.uploadFileToGCS("sensor-log-archive", filename, inputStream, null);
+                        // 삭제는 별도 트랜잭션에서 처리
+                        deleteSensorLogs(dateLogs);
+                    } catch (IOException e) {
+                        log.error("❌ 업로드 실패 - {} ({})", deviceNumber, date, e);
+                    }
+                }, executorService));
             }
         }
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+    }
+
+    /**
+     * 오래된 로그를 트랜잭션(readOnly)으로 안전하게 조회
+     */
+    @Transactional(readOnly = true)
+    public List<SensorLog> fetchLogsOlderThanCutoff(LocalDateTime cutoff) {
+        return sensorLogRepository.findLogsOlderThan(cutoff);
+    }
+
+    /**
+     * 로그 삭제는 별도 트랜잭션에서 처리 (JPA 커넥션 누수 방지)
+     */
+    @Transactional
+    protected void deleteSensorLogs(List<SensorLog> logs) {
+        sensorLogRepository.deleteAll(logs);
     }
 
     private StringBuilder getStringBuilder(List<SensorLog> logs) {
