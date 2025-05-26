@@ -45,13 +45,19 @@ public class SensorGroupService {
         List<SensorGroup> sensorGroups = sensorGroupRepository.findSensorGroupsWithSensorsByUserId(appUser.getId());
 
         return sensorGroups.stream()
-                .sorted(Comparator.comparing(SensorGroup::getOrder))
+                .sorted(Comparator.comparing(
+                    SensorGroup::getOrder,
+                    Comparator.nullsLast(Long::compareTo)
+                ))
                 .map(sensorGroup -> {
                     SensorGroupResponseDto dto = new SensorGroupResponseDto(sensorGroup);
 
                     List<SensorGroupResponseDto.SensorDto> sortedSensors = dto.getSensors().stream()
                         .filter(sensor -> !onlyFaulty || sensor.getFaultInformation().containsValue(true))
-                        .sorted(Comparator.comparing(SensorGroupResponseDto.SensorDto::getGroupPositionNumber))
+                        .sorted(Comparator.comparing(
+                            SensorGroupResponseDto.SensorDto::getGroupPositionNumber,
+                            Comparator.nullsLast(Long::compareTo)
+                        ))
                         .toList();
 
                     dto.setSensors(sortedSensors);
