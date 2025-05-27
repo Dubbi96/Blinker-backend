@@ -45,23 +45,25 @@ public class SensorGroupService {
         List<SensorGroup> sensorGroups = sensorGroupRepository.findSensorGroupsWithSensorsByUserId(appUser.getId());
 
         return sensorGroups.stream()
-                .sorted(Comparator.comparing(
-                    SensorGroup::getOrder,
-                    Comparator.nullsLast(Long::compareTo)
-                ))
+                .sorted(Comparator.comparing(SensorGroup::getOrder, Comparator.nullsLast(Long::compareTo)))
                 .map(sensorGroup -> {
                     SensorGroupResponseDto dto = new SensorGroupResponseDto(sensorGroup);
 
                     List<SensorGroupResponseDto.SensorDto> sortedSensors = dto.getSensors().stream()
-                        .filter(sensor -> !onlyFaulty || sensor.getFaultInformation().containsValue(true))
-                        .sorted(Comparator.comparing(
-                            SensorGroupResponseDto.SensorDto::getGroupPositionNumber,
-                            Comparator.nullsLast(Long::compareTo)
-                        ))
-                        .toList();
+                            .filter(sensor -> !onlyFaulty || sensor.getFaultInformation().containsValue(true))
+                            .sorted(Comparator.comparing(SensorGroupResponseDto.SensorDto::getGroupPositionNumber, Comparator.nullsLast(Long::compareTo)))
+                            .toList();
 
                     dto.setSensors(sortedSensors);
-                    return sortedSensors.isEmpty() && onlyFaulty ? null : dto;
+
+                    if (onlyFaulty) {
+                        // 고장 필터링 상태에서, 센서가 없으면 제외하고,
+                        // 센서가 있어도 고장 센서가 없으면 제외
+                        return sortedSensors.isEmpty() ? null : dto;
+                    } else {
+                        // 전체 보기 모드 → 무조건 포함
+                        return dto;
+                    }
                 })
                 .filter(Objects::nonNull)
                 .toList();

@@ -38,8 +38,8 @@ public interface SensorGroupRepository extends JpaRepository<SensorGroup, String
     void updateSsid(@Param("id") String id, @Param("ssid") String ssid);
 
 
-    @Query("SELECT sg FROM SensorGroup sg " +
-           "JOIN FETCH sg.sensors s " +
+    @Query("SELECT DISTINCT sg FROM SensorGroup sg " +
+           "LEFT JOIN FETCH sg.sensors s " +
            "JOIN AppUserSensorGroup ausg ON sg.id = ausg.sensorGroup.id " +
            "WHERE ausg.appUser.id = :userId")
     List<SensorGroup> findSensorGroupsWithSensorsByUserId(@Param("userId") Long userId);
