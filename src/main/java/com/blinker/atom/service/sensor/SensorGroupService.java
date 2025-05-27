@@ -70,10 +70,15 @@ public class SensorGroupService {
     @Transactional(readOnly = true)
     public List<UnregisteredSensorGroupResponseDto> getUnregisteredSensorGroups() {
         List<SensorGroup> sensorGroups = sensorGroupRepository.findUnrelatedSensorGroups();
+
         return sensorGroups.stream()
-                .sorted(Comparator.comparing(SensorGroup::getOrder))
+                .sorted(Comparator.comparing(
+                    SensorGroup::getOrder,
+                    Comparator.nullsLast(Long::compareTo) // ← Long 타입이라고 가정
+                ))
                 .map(sensorGroup -> {
-                    Sensor s = sensorRepository.findMasterSensorBySensorGroup(sensorGroup.getId()).orElseGet(Sensor::new);
+                    Sensor s = sensorRepository.findMasterSensorBySensorGroup(sensorGroup.getId())
+                            .orElseGet(Sensor::new);
                     return new UnregisteredSensorGroupResponseDto(sensorGroup, s.getAddress());
                 })
                 .toList();
