@@ -564,15 +564,9 @@ public class SensorLogSchedulerService {
         }
     }
 
-    /**
-     * 2시간 이전 로그를 센서 디바이스 번호/날짜별로 GCS로 보관하고 DB에서 삭제
-     * 1. 조회(JPA)는 트랜잭션(readOnly) 내에서 수행
-     * 2. 파일 업로드/삭제는 트랜잭션 없이 수행
-     */
     @Async
     public void archiveLogsBySensorDeviceNumber() {
         LocalDateTime cutoff = LocalDateTime.now().minusHours(2);
-        // 1. JPA로 오래된 로그를 트랜잭션(readOnly) 내에서 조회
         List<SensorLog> logs = fetchLogsOlderThanCutoff(cutoff);
 
         if (logs.isEmpty()) {
@@ -580,7 +574,6 @@ public class SensorLogSchedulerService {
             return;
         }
 
-        // 2. 디바이스 + 날짜 기준으로 그룹핑
         Map<String, Map<LocalDate, List<SensorLog>>> grouped = logs.stream()
             .filter(log -> log.getSensorDeviceNumber() != null)
             .collect(Collectors.groupingBy(
@@ -588,7 +581,6 @@ public class SensorLogSchedulerService {
                 Collectors.groupingBy(log -> log.getCreatedAt().toLocalDate())
             ));
 
-        // 3. 각 그룹(디바이스+날짜)별 파일 생성 및 업로드/삭제를 병렬로 처리
         List<CompletableFuture<Void>> futures = new ArrayList<>();
         for (Map.Entry<String, Map<LocalDate, List<SensorLog>>> deviceEntry : grouped.entrySet()) {
             String deviceNumber = deviceEntry.getKey();
@@ -601,17 +593,43 @@ public class SensorLogSchedulerService {
                             deviceNumber,
                             date.format(DateTimeFormatter.ofPattern("yyyyMMdd")));
                     StringBuilder sb = getStringBuilder(dateLogs);
+
+                    log.debug("업로드 대상 파일 [{}] 크기: {} bytes", filename, sb.length());
+
                     try (InputStream inputStream = new ByteArrayInputStream(sb.toString().getBytes())) {
-                        gcsUtil.uploadFileToGCS("sensor-log-archive", filename, inputStream, null);
-                        // 삭제는 별도 트랜잭션에서 처리
-                        deleteSensorLogs(dateLogs);
-                    } catch (IOException e) {
-                        log.error("❌ 업로드 실패 - {} ({})", deviceNumber, date, e);
+                        uploadWithRetry("sensor-log-archive", filename, inputStream);
+                        deleteSensorLogs(dateLogs);  // 삭제는 별도 트랜잭션에서 처리
+                    } catch (Exception e) {
+                        log.error("❌ 업로드 실패 - {} ({}): {}", deviceNumber, date, e.getMessage(), e);
                     }
                 }, executorService));
             }
         }
+
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+    }
+
+    private void uploadWithRetry(String bucket, String filename, InputStream inputStream) throws IOException {
+        int maxRetries = 3;
+        int retryDelayMillis = 1000;
+
+        for (int i = 0; i < maxRetries; i++) {
+            try {
+                gcsUtil.uploadFileToGCS(bucket, filename, inputStream, null);
+                return; // 성공 시 종료
+            } catch (IOException e) {
+                if (i == maxRetries - 1) {
+                    throw e;  // 마지막 시도도 실패하면 예외 던짐
+                }
+                log.warn("⚠️ 업로드 재시도 [{}] - 파일: {}", i + 1, filename);
+                try {
+                    Thread.sleep(retryDelayMillis);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt(); // 인터럽트 전파
+                    throw new IOException("업로드 재시도 중 인터럽트 발생", ie);
+                }
+            }
+        }
     }
 
     /**
