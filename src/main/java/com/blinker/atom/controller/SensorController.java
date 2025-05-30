@@ -110,7 +110,7 @@ public class SensorController {
     public void resetAndFetchSensorLog(@NotNull @PathVariable("sensorGroupId") String sensorGroupId) {
         sensorLogSchedulerService.deleteSensorGroupLogs(sensorGroupId);
         sensorLogSchedulerService.resetAndFetchLogsForSensorGroup(sensorGroupId);
-
+        sensorLogSchedulerService.updateSensorAddress();
     }
 
     @PutMapping("/log/{sensorGroupId}")
