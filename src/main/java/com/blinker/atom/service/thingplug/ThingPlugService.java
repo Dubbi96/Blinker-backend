@@ -123,12 +123,18 @@ public class ThingPlugService {
         String response = HttpClientUtil.get(url, new ThingPlugHeaderProvider(origin, uKey, requestId));
         List<String> remoteCSEIds = extractRemoteCSEIds(response);
 
-        remoteCSEIds.forEach(sensorGroupId -> {
-            // ID가 존재하지 않는 경우에만 저장
+        // 현재 존재하는 SensorGroup의 가장 큰 order 값
+        Long maxOrder = sensorGroupRepository.findMaxOrder();
+        long order = maxOrder == null ? 1 : maxOrder + 1;
+
+        for (String sensorGroupId : remoteCSEIds) {
             if (!sensorGroupRepository.existsById(sensorGroupId)) {
-                sensorGroupRepository.save(SensorGroup.builder().id(sensorGroupId).build());
+                sensorGroupRepository.save(SensorGroup.builder()
+                    .id(sensorGroupId)
+                    .order(order++)
+                    .build());
             }
-        });
+        }
 
         return remoteCSEIds;
     }

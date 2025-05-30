@@ -11,6 +11,7 @@ import org.hibernate.annotations.Type;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Entity
 @Table(name = "sensor")
@@ -153,5 +154,18 @@ public class Sensor {
     public void updateLocation(Double latitude, Double longitude) {
         this.latitude = latitude;
         this.longitude = longitude;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Sensor sensor = (Sensor) o;
+        return Objects.equals(deviceNumber, sensor.deviceNumber);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(deviceNumber);
     }
 }

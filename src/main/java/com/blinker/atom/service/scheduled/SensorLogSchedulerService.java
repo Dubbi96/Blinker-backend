@@ -484,16 +484,20 @@ public class SensorLogSchedulerService {
 
         // 예외 처리: 월, 일, 시간, 분 값이 유효한 범위인지 확인
         if (month < 1 || month > 12) {
-            throw new IllegalArgumentException("Invalid month extracted from serverTime: " + month);
+            return null;
+            //throw new IllegalArgumentException("Invalid month extracted from serverTime: " + month);
         }
         if (day < 1 || day > 31) {
-            throw new IllegalArgumentException("Invalid day extracted from serverTime: " + day);
+            return null;
+            //throw new IllegalArgumentException("Invalid day extracted from serverTime: " + day);
         }
         if (hour > 23) {
-            throw new IllegalArgumentException("Invalid hour extracted from serverTime: " + hour);
+            return null;
+            //throw new IllegalArgumentException("Invalid hour extracted from serverTime: " + hour);
         }
         if (minute > 59) {
-            throw new IllegalArgumentException("Invalid minute extracted from serverTime: " + minute);
+            return null;
+            //throw new IllegalArgumentException("Invalid minute extracted from serverTime: " + minute);
         }
 
         return LocalDateTime.of(year, month, day, hour, minute);
@@ -669,30 +673,27 @@ public class SensorLogSchedulerService {
         return value == null ? "" : value.toString();
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void fetchAndUpdateLogsForSensorGroup(String sensorGroupId) {
         log.info("🔹 SensorGroup '{}'에 대해 SensorLog 수집 및 업데이트 시작", sensorGroupId);
 
         SensorGroup group = sensorGroupRepository.findById(sensorGroupId)
             .orElseThrow(() -> new CustomException("해당 SensorGroup을 찾을 수 없습니다: " + sensorGroupId));
 
-        LocalDateTime lastSavedLogTime = sensorLogRepository.findMaxCreatedAtBySensorGroupId(sensorGroupId).orElseThrow(() -> new CustomException("해당 기기에는 로그가 존재하지 않습니다."));
-        if (lastSavedLogTime == null) {
-            lastSavedLogTime = LocalDateTime.now().minusHours(12);
-            log.warn("sensor_log 테이블이 비어있습니다. 현재 시각을 기준으로 설정합니다: {}", lastSavedLogTime);
-        }
+        LocalDateTime lastSavedLogTime = sensorLogRepository
+            .findMaxCreatedAtBySensorGroupId(sensorGroupId)
+            .orElse(LocalDateTime.now().minusHours(24));
 
         Set<String> existingEventCodes = new HashSet<>(sensorLogRepository.findAllEventCodesBySensorGroupId(sensorGroupId));
 
-        // 👉 컨텐츠 인스턴스 조회 URL 구성
         String url = String.format("%s/%s/v1_0/remoteCSE-%s/container-LoRa?fu=1&ty=4", baseUrl, appEui, sensorGroupId);
         String response = HttpClientUtil.get(url, new ThingPlugHeaderProvider(origin, uKey, requestId));
+
         if (response == null || response.isEmpty()) {
             log.warn("❌ API 응답이 없음. SensorGroup: {}", sensorGroupId);
             return;
         }
 
-        // 👉 contentInstance 목록에서 eventCode 추출
         List<String> eventCodes = extractContentInstanceUri(response);
         List<String> newEventCodes = eventCodes.stream()
             .filter(code -> !existingEventCodes.contains(code))
@@ -703,10 +704,7 @@ public class SensorLogSchedulerService {
             return;
         }
 
-        // 👉 비동기로 SensorLog 저장
         saveSensorLogs(newEventCodes, group, lastSavedLogTime);
-
-        // 👉 저장된 로그 중 미처리된 로그만 처리
         updateSensorFromSensorLogs(sensorGroupId);
     }
 
@@ -718,6 +716,26 @@ public class SensorLogSchedulerService {
             processSensorLog(log);
         }
         log.info("✅ SensorGroup '{}' 로그 처리 완료", sensorGroupId);
+    }
+
+    @Transactional
+    public void resetAndFetchLogsForSensorGroup(String sensorGroupId) {
+        SensorGroup group = sensorGroupRepository.findById(sensorGroupId)
+            .orElseThrow(() -> new CustomException("해당 SensorGroup을 찾을 수 없습니다: " + sensorGroupId));
+
+        sensorRepository.deleteBySensorGroup(group);
+
+        log.info("✅ SensorGroup '{}'의 센서 및 로그 삭제 완료. 로그 수집 및 업데이트 수행.", sensorGroupId);
+
+        fetchAndUpdateLogsForSensorGroup(sensorGroupId);
+    }
+
+    @Transactional
+    public void deleteSensorGroupLogs(String sensorGroupId) {
+        SensorGroup group = sensorGroupRepository.findById(sensorGroupId)
+            .orElseThrow(() -> new CustomException("해당 SensorGroup을 찾을 수 없습니다: " + sensorGroupId));
+
+        sensorLogRepository.deleteBySensorGroup(group);
     }
 
     @PreDestroy

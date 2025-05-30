@@ -100,9 +100,17 @@ public class SensorController {
     }
 
     @PostMapping("/log/{sensorGroupId}")
-    @Operation(summary = "특정 센서의 SensorGroup의 로그 수집", description = "⛔️ 멀티 쓰레드 환경에서 동작하므로 사용에 주의 요함")
+    @Operation(summary = "특정 SensorGroup의 로그 수집", description = "⛔️ 멀티 쓰레드 환경에서 동작하므로 사용에 주의 요함")
     public void fetchSensorLog(@NotNull @PathVariable("sensorGroupId") String sensorGroupId) {
         sensorLogSchedulerService.fetchAndUpdateLogsForSensorGroup(sensorGroupId);
+    }
+
+    @DeleteMapping("/log/{sensorGroupId}")
+    @Operation(summary = "특정 센서 그룹의 센서 초기화 후 SensorGroup의 로그 수집", description = "⛔️ 멀티 쓰레드 환경에서 동작하므로 사용에 주의 요함")
+    public void resetAndFetchSensorLog(@NotNull @PathVariable("sensorGroupId") String sensorGroupId) {
+        sensorLogSchedulerService.deleteSensorGroupLogs(sensorGroupId);
+        sensorLogSchedulerService.resetAndFetchLogsForSensorGroup(sensorGroupId);
+
     }
 
     @PutMapping("/log/{sensorGroupId}")
