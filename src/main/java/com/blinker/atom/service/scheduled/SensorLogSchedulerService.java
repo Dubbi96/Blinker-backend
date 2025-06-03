@@ -553,7 +553,6 @@ public class SensorLogSchedulerService {
         }
     }
 
-    @Async
     public void archiveLogsBySensorDeviceNumber() {
         LocalDateTime cutoff = LocalDateTime.now().minusHours(2);
         List<SensorLog> logs = fetchLogsOlderThanCutoff(cutoff);
