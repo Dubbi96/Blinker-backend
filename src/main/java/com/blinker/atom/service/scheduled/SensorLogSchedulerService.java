@@ -34,8 +34,6 @@ import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -73,7 +71,6 @@ public class SensorLogSchedulerService {
     private String kakaoRestApiKey;
 
     private static final String KAKAO_API_URL = "https://dapi.kakao.com/v2/local/geo/coord2address.json?x=%s&y=%s";
-    private final ExecutorService executorService = Executors.newFixedThreadPool(10);
 
     @Transactional
     public void rollbackSensors(){
@@ -83,10 +80,7 @@ public class SensorLogSchedulerService {
 
     @Transactional
     protected void scheduleRollbackSensors(List<Sensor> sensors) {
-        List<CompletableFuture<Void>> futures = sensors.stream()
-            .map(sensor -> CompletableFuture.runAsync(() -> rollbackSensors(sensor), executorService))
-            .toList();
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        sensors.forEach(this::rollbackSensors);
     }
 
     @Transactional
@@ -150,7 +144,7 @@ public class SensorLogSchedulerService {
      *  5-1-9. cmd 71번의 경우도 GPS 좌표이나, 67번, 73로그 둘다 가지고 있으므로 로그 무시
      * 	6.	해당 작업을 Spring Scheduler + Async를 이용해 주기적으로 실행.
      * 	*/
-    @Transactional(readOnly = true)
+    @Transactional
     public void fetchAndSaveSensorLogs() {
         log.info("🔹 Sensor Log 스케줄러 실행...");
 
@@ -207,18 +201,13 @@ public class SensorLogSchedulerService {
     }
 
     protected void saveSensorLogs(List<String> eventCodes, SensorGroup group, LocalDateTime lastSavedTime) {
-        List<CompletableFuture<Void>> futures = eventCodes.stream()
-            .map(eventCode -> CompletableFuture.runAsync(
-                () -> {
-                    try {
-                        fetchAndSaveLog(eventCode, group, lastSavedTime);
-                    } catch (Exception e) {
-                        log.error("❌ fetchAndSaveLog 처리 실패: eventCode = {}", eventCode, e);
-                    }
-                }, executorService))
-            .toList();
-
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        for (String eventCode : eventCodes) {
+            try {
+                fetchAndSaveLog(eventCode, group, lastSavedTime);
+            } catch (Exception e) {
+                log.error("❌ fetchAndSaveLog 처리 실패: eventCode = {}", eventCode, e);
+            }
+        }
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -504,19 +493,15 @@ public class SensorLogSchedulerService {
     }
 
     /**모든 센서의 위치 정보를 변환하여 string 값으로 추가*/
-    @Transactional(readOnly = true)
+    @Transactional
     public void updateSensorAddress(){
         log.info("Sensor 위치 정보 조회 스케줄러 실행...");
 
         // 모든 센서 조회
         List<Sensor> sensors = sensorRepository.findAll();
-
-        List<CompletableFuture<Void>> futures = sensors.stream()
-            .map(sensor -> CompletableFuture.runAsync(() -> fetchAndLogLocation(sensor), executorService))
-            .toList();
-
-        // 모든 비동기 작업 완료 대기
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        for (Sensor sensor : sensors) {
+            fetchAndLogLocation(sensor);
+        }
     }
 
     @Transactional
@@ -585,32 +570,26 @@ public class SensorLogSchedulerService {
                 Collectors.groupingBy(log -> log.getCreatedAt().toLocalDate())
             ));
 
-        List<CompletableFuture<Void>> futures = new ArrayList<>();
         for (Map.Entry<String, Map<LocalDate, List<SensorLog>>> deviceEntry : grouped.entrySet()) {
             String deviceNumber = deviceEntry.getKey();
             for (Map.Entry<LocalDate, List<SensorLog>> dateEntry : deviceEntry.getValue().entrySet()) {
                 LocalDate date = dateEntry.getKey();
                 List<SensorLog> dateLogs = dateEntry.getValue();
+                String filename = String.format("%s_%s.csv",
+                        deviceNumber,
+                        date.format(DateTimeFormatter.ofPattern("yyyyMMdd")));
+                StringBuilder sb = getStringBuilder(dateLogs);
 
-                futures.add(CompletableFuture.runAsync(() -> {
-                    String filename = String.format("%s_%s.csv",
-                            deviceNumber,
-                            date.format(DateTimeFormatter.ofPattern("yyyyMMdd")));
-                    StringBuilder sb = getStringBuilder(dateLogs);
+                log.debug("업로드 대상 파일 [{}] 크기: {} bytes", filename, sb.length());
 
-                    log.debug("업로드 대상 파일 [{}] 크기: {} bytes", filename, sb.length());
-
-                    try (InputStream inputStream = new ByteArrayInputStream(sb.toString().getBytes())) {
-                        uploadWithRetry("sensor-log-archive", filename, inputStream);
-                        deleteSensorLogs(dateLogs);  // 삭제는 별도 트랜잭션에서 처리
-                    } catch (Exception e) {
-                        log.error("❌ 업로드 실패 - {} ({}): {}", deviceNumber, date, e.getMessage(), e);
-                    }
-                }, executorService));
+                try (InputStream inputStream = new ByteArrayInputStream(sb.toString().getBytes())) {
+                    uploadWithRetry("sensor-log-archive", filename, inputStream);
+                    deleteSensorLogs(dateLogs);  // 삭제는 별도 트랜잭션에서 처리
+                } catch (Exception e) {
+                    log.error("❌ 업로드 실패 - {} ({}): {}", deviceNumber, date, e.getMessage(), e);
+                }
             }
         }
-
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
     }
 
     private void uploadWithRetry(String bucket, String filename, InputStream inputStream) throws IOException {
@@ -639,7 +618,7 @@ public class SensorLogSchedulerService {
     /**
      * 오래된 로그를 트랜잭션(readOnly)으로 안전하게 조회
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public List<SensorLog> fetchLogsOlderThanCutoff(LocalDateTime cutoff) {
         return sensorLogRepository.findLogsOlderThan(cutoff);
     }
@@ -738,9 +717,4 @@ public class SensorLogSchedulerService {
         sensorLogRepository.deleteBySensorGroup(group);
     }
 
-    @PreDestroy
-    public void shutdownExecutor() {
-        log.info("🛑 Shutting down ExecutorService...");
-        executorService.shutdown();
-    }
 }
