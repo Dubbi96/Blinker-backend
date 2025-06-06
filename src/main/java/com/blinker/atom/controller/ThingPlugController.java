@@ -76,5 +76,4 @@ public class ThingPlugController {
     public List<String> getRemoteCSEIds() {
         return thingPlugService.fetchRemoteCSEIds();
     }
-
 }
