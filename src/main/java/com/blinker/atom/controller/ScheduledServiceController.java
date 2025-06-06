@@ -65,5 +65,4 @@ public class ScheduledServiceController {
         sensorLogSchedulerService.archiveLogsBySensorDeviceNumber();
         return "Sensor Log 이관";
     }
-
 }
