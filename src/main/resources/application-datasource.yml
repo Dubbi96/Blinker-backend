@@ -33,9 +33,9 @@ spring:
       jdbc-url: jdbc:postgresql://google/blinker
       driver-class-name: org.postgresql.Driver
       data-source-properties:
-        cloudSqlInstance: blinker-backend:asia-northeast3:blinker-atom-db
+        cloudSqlInstance: blinker-backend1:asia-northeast3:blinker-atom-db
         socketFactory: com.google.cloud.sql.postgres.SocketFactory
-    url: jdbc:postgresql://google/blinker?cloudSqlInstance=blinker-backend:asia-northeast3:blinker-atom-db&socketFactory=com.google.cloud.sql.postgres.SocketFactory
+    url: jdbc:postgresql://google/blinker?cloudSqlInstance=blinker-backend1:asia-northeast3:blinker-atom-db&socketFactory=com.google.cloud.sql.postgres.SocketFactory
 
 ---
 spring:

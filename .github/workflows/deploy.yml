@@ -39,15 +39,15 @@ jobs:
       run: gcloud auth configure-docker asia-northeast3-docker.pkg.dev
 
     - name: 5️⃣ Build Docker Image
-      run: docker build -t asia-northeast3-docker.pkg.dev/blinker-backend/blinker-repo/blinker-backend:latest .
+      run: docker build -t asia-northeast3-docker.pkg.dev/blinker-backend1/blinker-repo/blinker-backend1:latest .
 
     - name: 6️⃣ Push Docker Image to Artifact Registry
-      run: docker push asia-northeast3-docker.pkg.dev/blinker-backend/blinker-repo/blinker-backend:latest
+      run: docker push asia-northeast3-docker.pkg.dev/blinker-backend1/blinker-repo/blinker-backend1:latest
 
     - name: 7️⃣ Deploy to Cloud Run
       run: |
-        gcloud run deploy blinker-backend \
-          --image=asia-northeast3-docker.pkg.dev/blinker-backend/blinker-repo/blinker-backend:latest \
+        gcloud run deploy blinker-backend1 \
+          --image=asia-northeast3-docker.pkg.dev/blinker-backend1/blinker-repo/blinker-backend1:latest \
           --platform=managed \
           --region=asia-northeast3 \
           --allow-unauthenticated \
