@@ -454,6 +454,15 @@ public class SensorLogSchedulerService {
         String deviceNumber = parsedSensorLog.getDeviceNumber();
         Optional<Sensor> existingSensorOpt = sensorRepository.findByDeviceNumber(deviceNumber);
         if (existingSensorOpt.isEmpty()) {
+            // Remove existing sensor with same groupPositionNumber in this group
+            Long newGroupPositionNumber = (long) parsedSensorLog.getGroupPositionNumber();
+            List<Sensor> existingPositionSensors = sensorRepository.findBySensorGroupId(sensorGroup.getId()).stream()
+                    .filter(s -> Objects.equals(s.getGroupPositionNumber(), newGroupPositionNumber))
+                    .toList();
+            for (Sensor existing : existingPositionSensors) {
+                sensorRepository.delete(existing);
+                log.info("🗑️ 기존 센서 제거됨 (같은 포지션): {}", existing.getDeviceNumber());
+            }
             Sensor sensor = Sensor.builder()
                     .sensorGroup(sensorGroup)
                     .deviceNumber(deviceNumber)
