@@ -31,7 +31,7 @@ public class Sensor {
     @JoinColumn(name = "sensor_group_id", nullable = false)
     private SensorGroup sensorGroup;
 
-    @Column(name = "device_number", length = 50, nullable = false)
+    @Column(name = "device_number", length = 50, nullable = false, unique = true)
     private String deviceNumber;
 
     @Column(name = "deviceId")

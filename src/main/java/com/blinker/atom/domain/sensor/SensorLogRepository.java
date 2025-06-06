@@ -62,4 +62,21 @@ public interface SensorLogRepository extends JpaRepository<SensorLog, Long> {
             @Param("sensorGroupId") String sensorGroupId,
             @Param("cutoffTime") LocalDateTime cutoffTime);
 
+    /**
+     * Find all unprocessed logs for a sensor group, excluding those with device numbers in the given list.
+     */
+    @Query("""
+        SELECT sl FROM SensorLog sl
+        WHERE sl.sensorGroup = :sensorGroup
+          AND sl.isProcessed = false
+          AND sl.sensorDeviceNumber NOT IN :deviceNumbers
+    """)
+    List<SensorLog> findAllBySensorGroupAndIsProcessedFalseAndDeviceNumberNotIn(
+            @Param("sensorGroup") SensorGroup sensorGroup,
+            @Param("deviceNumbers") List<String> deviceNumbers);
+
+    /**
+     * Find all unprocessed logs for a sensor group.
+     */
+    List<SensorLog> findAllBySensorGroupAndIsProcessedFalse(SensorGroup sensorGroup);
 }

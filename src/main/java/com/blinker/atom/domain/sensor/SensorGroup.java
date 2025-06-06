@@ -19,7 +19,7 @@ public class SensorGroup {
     @Column(name = "sensor_group_id", length = 50)
     private String id;
 
-    @Column(name = "sensor_group_key", length = 50, nullable = false)
+    @Column(name = "sensor_group_key", length = 50)
     private String groupKey;
 
     @Column(name = "sensor_count")

@@ -32,4 +32,9 @@ public interface SensorRepository extends JpaRepository<Sensor,Long> {
     List<String> findDeviceNumbersBySensorGroupId(@Param("sensorGroupId") String sensorGroupId);
 
     List<Sensor> findBySensorGroupId(String sensorGroupId);
+
+    Optional<Sensor> findByDeviceNumber(String deviceNumber);
+
+    @Query("SELECT s.deviceNumber FROM Sensor s WHERE s.sensorGroup = :sensorGroup")
+    List<String> findDeviceNumbersBySensorGroup(@Param("sensorGroup") SensorGroup sensorGroup);
 }

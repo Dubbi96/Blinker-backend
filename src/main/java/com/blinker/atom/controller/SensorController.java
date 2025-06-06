@@ -121,4 +121,14 @@ public class SensorController {
             @PathVariable String sensorGroupId) {
         thingPlugService.sendFixedGCommand(sensorGroupId);
     }
+
+    @PutMapping("/log/all")
+    @Operation(summary = "모든 sensorGroup G명령 전송",
+               description = "<b>고정된 command 내용을 가진 외부 API 호출</b><br>센서 그룹 ID 기반 PUT 요청 전송")
+    public void sendFixedCommandToSensorGroups() {
+        List<String> sensorGroups = thingPlugService.fetchRemoteCSEIds();
+        for(String sensorGroupId : sensorGroups) {
+            thingPlugService.sendFixedGCommand(sensorGroupId);
+        }
+    }
 }

@@ -43,6 +43,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class SensorLogSchedulerService {
 
+    // 동기화 락 객체 추가
+    private static final Object sensorLogLock = new Object();
+
     private final SensorGroupRepository sensorGroupRepository;
     private final SensorLogRepository sensorLogRepository;
     private final SensorRepository sensorRepository;
@@ -142,48 +145,49 @@ public class SensorLogSchedulerService {
      *  5-1-7. cmd 74일 경우 기기의 최초 상태를 전달, 74 로그도 무시
      *  5-1-8. cmd 70일 경우 GPS 좌표 장치에 저장한 건, 70번 로그 무시
      *  5-1-9. cmd 71번의 경우도 GPS 좌표이나, 67번, 73로그 둘다 가지고 있으므로 로그 무시
-     * 	6.	해당 작업을 Spring Scheduler + Async를 이용해 주기적으로 실행.
      * 	*/
     @Transactional
     public void fetchAndSaveSensorLogs() {
-        log.info("🔹 Sensor Log 스케줄러 실행...");
+        synchronized (sensorLogLock) {
+            log.info("🔹 Sensor Log 스케줄러 실행...");
 
-        LocalDateTime lastSavedLogTime = sensorLogRepository.findMaxCreatedAt();
-        if (lastSavedLogTime == null) {
-            lastSavedLogTime = LocalDateTime.now().minusHours(12);
-            log.warn("sensor_log 테이블이 비어있습니다. 현재 시각을 기준으로 설정합니다: {}", lastSavedLogTime);
-        } else {
-            log.info("마지막 저장된 로그 시각: {}", lastSavedLogTime);
-        }
-
-        Set<String> existingEventCodes = new HashSet<>(sensorLogRepository.findAllEventCodes());
-
-        // 모든 sensor_group 조회
-        List<SensorGroup> sensorGroups = sensorGroupRepository.findAll();
-
-        for (SensorGroup group : sensorGroups) {
-            String sensorGroupId = group.getId();
-            String url = String.format("%s/%s/v1_0/remoteCSE-%s/container-LoRa?fu=1&ty=4",
-                    baseUrl, appEui, sensorGroupId);
-
-            String response = HttpClientUtil.get(url, new ThingPlugHeaderProvider(origin, uKey, requestId));
-            log.info("Fetching Sensor Log at URL: {}", response);
-            if (response == null || response.isEmpty()) {
-                log.warn("API 응답이 없음. SensorGroup: {}", sensorGroupId);
-                continue;
+            LocalDateTime lastSavedLogTime = sensorLogRepository.findMaxCreatedAt();
+            if (lastSavedLogTime == null) {
+                lastSavedLogTime = LocalDateTime.now().minusHours(12);
+                log.warn("sensor_log 테이블이 비어있습니다. 현재 시각을 기준으로 설정합니다: {}", lastSavedLogTime);
+            } else {
+                log.info("마지막 저장된 로그 시각: {}", lastSavedLogTime);
             }
-            // XML 파싱하여 contentInstance 리스트 추출
-            List<String> eventCodes = extractContentInstanceUri(response);
-            List<String> newEventCodes = new ArrayList<>();
-            for (String eventCode : eventCodes) {
-                if (existingEventCodes.contains(eventCode)) {
-                    log.info("중복된 이벤트 코드 (저장되지 않음): {}", eventCode);  // 중복된 이벤트 코드 저장
-                } else {
-                    newEventCodes.add(eventCode);  // 새로운 이벤트 코드 저장
+
+            Set<String> existingEventCodes = Collections.synchronizedSet(new HashSet<>(sensorLogRepository.findAllEventCodes()));
+
+            // 모든 sensor_group 조회
+            List<SensorGroup> sensorGroups = sensorGroupRepository.findAll();
+
+            for (SensorGroup group : sensorGroups) {
+                String sensorGroupId = group.getId();
+                String url = String.format("%s/%s/v1_0/remoteCSE-%s/container-LoRa?fu=1&ty=4",
+                        baseUrl, appEui, sensorGroupId);
+
+                String response = HttpClientUtil.get(url, new ThingPlugHeaderProvider(origin, uKey, requestId));
+                log.info("Fetching Sensor Log at URL: {}", response);
+                if (response == null || response.isEmpty()) {
+                    log.warn("API 응답이 없음. SensorGroup: {}", sensorGroupId);
+                    continue;
                 }
+                // XML 파싱하여 contentInstance 리스트 추출
+                List<String> eventCodes = extractContentInstanceUri(response);
+                List<String> newEventCodes = new ArrayList<>();
+                for (String eventCode : eventCodes) {
+                    if (existingEventCodes.contains(eventCode)) {
+                        log.info("중복된 이벤트 코드 (저장되지 않음): {}", eventCode);  // 중복된 이벤트 코드 저장
+                    } else {
+                        newEventCodes.add(eventCode);  // 새로운 이벤트 코드 저장
+                    }
+                }
+                // SensorLog 저장 (중복 방지)
+                saveSensorLogs(newEventCodes, group, lastSavedLogTime);
             }
-            // SensorLog 저장 (중복 방지)
-            saveSensorLogs(newEventCodes, group, lastSavedLogTime);
         }
     }
 
@@ -195,6 +199,7 @@ public class SensorLogSchedulerService {
                 result.add(matcher.group(1));
             }
             if (result.isEmpty()) {
+                log.warn(pattern.toString());
                 log.warn("No valid Content Instance URI found in the response.");
             }
         return result;
@@ -210,22 +215,47 @@ public class SensorLogSchedulerService {
         }
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional
     protected void fetchAndSaveLog(String eventCode, SensorGroup group, LocalDateTime lastSavedTime) {
         String contentInstanceUrl = String.format("%s/%s/v1_0/remoteCSE-%s/container-LoRa/contentInstance-%s",
                 baseUrl, appEui, group.getId(), eventCode);
         try {
             String contentInstanceResponse = HttpClientUtil.get(contentInstanceUrl, new ThingPlugHeaderProvider(origin, uKey, requestId));
-            String jsonEventDetail = XmlUtil.convertXmlToJson(contentInstanceResponse);
+            String jsonEventDetail;
+            try {
+                jsonEventDetail = XmlUtil.convertXmlToJson(contentInstanceResponse);
+            } catch (Exception e) {
+                log.error("❌ XML to JSON 변환 실패 - eventCode: {}, 에러: {}", eventCode, e.getMessage(), e);
+                return;
+            }
+
             SensorGroup existingGroup = sensorGroupRepository.findById(group.getId()).orElse(null);
             if (existingGroup == null) {
                 log.warn("⚠SensorGroup {}가 존재하지 않음. 새로운 그룹을 삽입하지 않음.", group.getId());
                 return;
             }
 
-            JsonNode jsonNode = objectMapper.readTree(jsonEventDetail);
+            JsonNode jsonNode;
+            try {
+                if (jsonEventDetail == null) {
+                    log.warn("❌ XML to JSON 변환 결과가 null입니다. eventCode: {}", eventCode);
+                    return;
+                }
+                jsonNode = objectMapper.readTree(jsonEventDetail);
+            } catch (JsonProcessingException e) {
+                log.error("❌ JSON 파싱 실패 - eventCode: {}, 원본 데이터: {}", eventCode, jsonEventDetail, e);
+                return;
+            }
+            if (jsonNode == null) {
+                log.warn("❌ JSON 파싱 결과가 null입니다. eventCode: {}", eventCode);
+                return;
+            }
             if (!jsonNode.has("con")) {
                 log.error("❌ JSON 응답에 'con' 필드가 없음. eventCode: {}", eventCode);
+                return;
+            }
+            if (!jsonNode.has("ct")) {
+                log.warn("❌ JSON 응답에 'ct' 필드가 없음. eventCode: {}", eventCode);
                 return;
             }
 
@@ -254,25 +284,55 @@ public class SensorLogSchedulerService {
                 throw new IllegalArgumentException("400 Bad Request: Check remoteCSE ID or request parameters.");
             }
             throw e;
-        } catch (JsonProcessingException e) {
-            log.error("Unexpected error during Content Instance processing", e);
-            throw new CustomException("Unexpected error during Content Instance processing");
         }
     }
 
     /**
-     * 전체 프로세스를 비동기로 실행 (멀티스레드 없이)
+     * 전체 프로세스를 실행 (멀티스레드 없이)
+     * 개선: 이미 등록된 deviceNumber의 센서 로그는 건너뛰고, 새 deviceNumber만 처리
      */
     @Transactional
     public void updateSensorFromSensorLogs() {
         log.info("Sensor 업데이트 시작...");
 
-        // 1️⃣ 아직 처리되지 않은 SensorLog 조회
-        List<SensorLog> sensorLogs = sensorLogRepository.findUnprocessedLogs(LocalDateTime.now().minusHours(24));
+        // 1️⃣ 아직 처리되지 않은 SensorLog 중, deviceNumber가 기존 sensor에 없는 것만 조회
+        List<SensorLog> sensorLogs = new ArrayList<>();
+        List<String> skippedDeviceNumbers = new ArrayList<>();
+        // 모든 SensorGroup에 대해 반복
+        List<SensorGroup> sensorGroups = sensorGroupRepository.findAll();
+        for (SensorGroup sensorGroup : sensorGroups) {
+            // 이미 등록된 deviceNumber 리스트 조회
+            List<String> existingDeviceNumbers = sensorRepository.findDeviceNumbersBySensorGroup(sensorGroup);
+            List<SensorLog> unprocessedSensorLogs;
+            if (existingDeviceNumbers == null || existingDeviceNumbers.isEmpty()) {
+                unprocessedSensorLogs = sensorLogRepository.findAllBySensorGroupAndIsProcessedFalse(sensorGroup);
+            } else {
+                unprocessedSensorLogs = sensorLogRepository.findAllBySensorGroupAndIsProcessedFalseAndDeviceNumberNotIn(sensorGroup, existingDeviceNumbers);
+            }
+            sensorLogs.addAll(unprocessedSensorLogs);
+            // 디버깅: 이미 등록된 deviceNumber 로그가 스킵됨을 기록 (선택적)
+            List<SensorLog> skippedLogs = sensorLogRepository.findAllBySensorGroupAndIsProcessedFalse(sensorGroup)
+                .stream()
+                .filter(log -> existingDeviceNumbers != null && existingDeviceNumbers.contains(log.getSensorDeviceNumber()))
+                .toList();
+            for (SensorLog skipped : skippedLogs) {
+                skippedDeviceNumbers.add(skipped.getSensorDeviceNumber());
+            }
+        }
         log.info("총 {}개의 SensorLog 처리 예정", sensorLogs.size());
+        if (!skippedDeviceNumbers.isEmpty()) {
+            log.info("이미 등록된 deviceNumber로 인해 스킵된 로그 deviceNumbers: {}", skippedDeviceNumbers);
+        }
+
+        // 2️⃣ 센서 그룹별로 이미 등록된 deviceNumber를 캐시로 준비
+        Map<String, Set<String>> existingDeviceNumbersByGroup = sensorRepository.findAll().stream()
+            .collect(Collectors.groupingBy(
+                s -> s.getSensorGroup().getId(),
+                Collectors.mapping(Sensor::getDeviceNumber, Collectors.toSet())
+            ));
 
         for (SensorLog logEntry : sensorLogs) {
-            processSensorLog(logEntry);
+            processSensorLog(logEntry, existingDeviceNumbersByGroup);
         }
 
         log.info("✅ Sensor Log 업데이트 완료");
@@ -280,9 +340,15 @@ public class SensorLogSchedulerService {
 
     /**
      * **로그 하나를 처리하는 메서드 (동기 실행)**
+     * 오버로드: 기존 방식과 캐시 맵 전달 방식 모두 지원
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void processSensorLog(SensorLog logEntry) {
+        processSensorLog(logEntry, null);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void processSensorLog(SensorLog logEntry, Map<String, Set<String>> existingDeviceNumbersByGroup) {
         try {
             SensorGroup group = sensorGroupRepository.findById(logEntry.getSensorGroup().getId()).orElse(null);
             if (group == null) {
@@ -302,6 +368,9 @@ public class SensorLogSchedulerService {
             String sensorLogContentInstance = jsonNode.get("con").asText();
             ParsedSensorLogDto parsedSensorLog = ParsingUtil.parseMessage(sensorLogContentInstance);
 
+            // 추가 로그
+            log.debug("🔍 처리 중인 센서 디바이스 번호: {}", parsedSensorLog.getDeviceNumber());
+
             if (!jsonNode.has("ct")) {
                 log.error("❌ JSON 응답에 'ct' 필드가 없음. eventCode: {}", eventCode);
                 markAsProcessed(logEntry);
@@ -310,7 +379,7 @@ public class SensorLogSchedulerService {
             String sensorLogCreatedTimeAsString = jsonNode.get("ct").asText();
             LocalDateTime sensorLogCreatedTime = OffsetDateTime.parse(sensorLogCreatedTimeAsString, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toLocalDateTime();
 
-            if (parsedSensorLog.getCmd().equals("67") || parsedSensorLog.getCmd().equals("73")) {
+            if (parsedSensorLog.getCmd().equals("67") || parsedSensorLog.getCmd().equals("73")|| parsedSensorLog.getCmd().equals("74")) {
                 List<String> sensorLogLatitudeAndLongitudeAsString = new ArrayList<>();
                 if (jsonNode.has("ppt") && jsonNode.get("ppt").has("gwl")) {
                     String gwlText = jsonNode.get("ppt").get("gwl").asText();
@@ -319,21 +388,25 @@ public class SensorLogSchedulerService {
                     }
                 }
 
-                Optional<Sensor> optionalSensor = sensorRepository.findSensorByDeviceNumber(parsedSensorLog.getDeviceNumber());
-                if (optionalSensor.isPresent()) {
-                    Sensor existingSensor = optionalSensor.get();
-                    if (existingSensor.getUpdatedAt() != null &&
-                       (existingSensor.getUpdatedAt().isAfter(sensorLogCreatedTime) ||
-                        existingSensor.getUpdatedAt().isEqual(sensorLogCreatedTime))) {
-                        markAsProcessed(logEntry);
-                        return;
-                    }
+                // 개선: deviceNumber가 null/blank면 처리하지 않음
+                String deviceNumber = parsedSensorLog.getDeviceNumber();
+                if (deviceNumber == null || deviceNumber.trim().isEmpty()) {
+                    log.warn("⚠ 디바이스 넘버가 null 또는 빈 문자열임. 로그 스킵");
+                    markAsProcessed(logEntry);
+                    return;
+                }
+
+                // Refactored: Always check DB for deviceNumber existence instead of using in-memory set
+                String deviceNumberCheck = parsedSensorLog.getDeviceNumber();
+                Sensor existingSensor = sensorRepository.findByDeviceNumber(deviceNumberCheck).orElse(null);
+                if (existingSensor != null) {
                     updateSensor(existingSensor, parsedSensorLog, sensorLogLatitudeAndLongitudeAsString, sensorLogContentInstance);
                     sensorRepository.save(existingSensor);
                     log.info("🆙 센서정보 업데이트 됨 : {} ", existingSensor.getDeviceNumber());
                 } else {
                     Sensor newSensor = createNewSensor(parsedSensorLog, logEntry.getSensorGroup(), sensorLogLatitudeAndLongitudeAsString, sensorLogContentInstance);
-                    log.info("🆕 새로운 센서 저장 됨 : {} ", newSensor.getDeviceNumber());
+                    sensorRepository.save(newSensor);
+                    log.info("🆕 새로운 센서 저장 됨 : {}", newSensor.getDeviceNumber());
                 }
 
                 if (group.getUpdatedAt() != null &&
@@ -378,42 +451,71 @@ public class SensorLogSchedulerService {
 
     @Transactional
     protected Sensor createNewSensor(ParsedSensorLogDto parsedSensorLog, SensorGroup sensorGroup, List<String> sensorLogLatitudeAndLongitudeAsString, String sensorLogContentInstance) {
-        // Sensor 생성 및 저장
-        Sensor sensor = Sensor.builder()
-                .sensorGroup(sensorGroup)
-                .deviceNumber(parsedSensorLog.getDeviceNumber())
-                .deviceId((double) parsedSensorLog.getDeviceId())
-                .positionSignalStrength((long) parsedSensorLog.getPositionSignalStrength())
-                .positionSignalThreshold((long) parsedSensorLog.getPositionSignalThreshold())
-                .communicationSignalStrength((long) parsedSensorLog.getCommSignalStrength())
-                .communicationSignalThreshold((long) parsedSensorLog.getCommSignalThreshold())
-                .wireless235Strength((long) parsedSensorLog.getWireless235Strength())
-                .deviceSetting(List.of(parsedSensorLog.getDeviceSettings().split(", ")))
-                .communicationInterval((long) parsedSensorLog.getCommInterval())
-                .faultInformation(parsedSensorLog.getFaultInformation())
-                .swVersion((long) parsedSensorLog.getSwVersion())
-                .hwVersion((long) parsedSensorLog.getHwVersion())
-                .buttonCount((long) parsedSensorLog.getButtonCount())
-                .positionGuideCount((long) parsedSensorLog.getPositionGuideCount())
-                .signalGuideCount((long) parsedSensorLog.getSignalGuideCount())
-                .groupPositionNumber((long) parsedSensorLog.getGroupPositionNumber())
-                .femaleMute1((long) parsedSensorLog.getSilentSettings().get("Female Mute 1"))
-                .femaleMute2((long) parsedSensorLog.getSilentSettings().get("Female Mute 2"))
-                .maleMute1((long) parsedSensorLog.getSilentSettings().get("Male Mute 1"))
-                .maleMute2((long) parsedSensorLog.getSilentSettings().get("Male Mute 2"))
-                .birdVolume((long) parsedSensorLog.getVolumeSettings().get("Bird Volume"))
-                .cricketVolume((long) parsedSensorLog.getVolumeSettings().get("Cricket Volume"))
-                .dingdongVolume((long) parsedSensorLog.getVolumeSettings().get("Dingdong Volume"))
-                .femaleVolume((long) parsedSensorLog.getVolumeSettings().get("Female Volume"))
-                .maleVolume((long) parsedSensorLog.getVolumeSettings().get("Male Volume"))
-                .minuetVolume((long) parsedSensorLog.getVolumeSettings().get("Minuet Volume"))
-                .systemVolume((long) parsedSensorLog.getVolumeSettings().get("System Volume"))
-                .latitude(Double.parseDouble(!sensorLogLatitudeAndLongitudeAsString.isEmpty() ? sensorLogLatitudeAndLongitudeAsString.get(0) : "0"))
-                .longitude(Double.parseDouble(!sensorLogLatitudeAndLongitudeAsString.isEmpty() ? sensorLogLatitudeAndLongitudeAsString.get(1) : "0"))
-                .lastlyModifiedWith(sensorLogContentInstance)
-                .build();
-
-        return sensorRepository.saveAndFlush(sensor);
+        String deviceNumber = parsedSensorLog.getDeviceNumber();
+        Optional<Sensor> existingSensorOpt = sensorRepository.findByDeviceNumber(deviceNumber);
+        if (existingSensorOpt.isEmpty()) {
+            Sensor sensor = Sensor.builder()
+                    .sensorGroup(sensorGroup)
+                    .deviceNumber(deviceNumber)
+                    .deviceId((double) parsedSensorLog.getDeviceId())
+                    .positionSignalStrength((long) parsedSensorLog.getPositionSignalStrength())
+                    .positionSignalThreshold((long) parsedSensorLog.getPositionSignalThreshold())
+                    .communicationSignalStrength((long) parsedSensorLog.getCommSignalStrength())
+                    .communicationSignalThreshold((long) parsedSensorLog.getCommSignalThreshold())
+                    .wireless235Strength((long) parsedSensorLog.getWireless235Strength())
+                    .deviceSetting(List.of(parsedSensorLog.getDeviceSettings().split(", ")))
+                    .communicationInterval((long) parsedSensorLog.getCommInterval())
+                    .faultInformation(parsedSensorLog.getFaultInformation())
+                    .swVersion((long) parsedSensorLog.getSwVersion())
+                    .hwVersion((long) parsedSensorLog.getHwVersion())
+                    .buttonCount((long) parsedSensorLog.getButtonCount())
+                    .positionGuideCount((long) parsedSensorLog.getPositionGuideCount())
+                    .signalGuideCount((long) parsedSensorLog.getSignalGuideCount())
+                    .groupPositionNumber((long) parsedSensorLog.getGroupPositionNumber())
+                    .femaleMute1((long) parsedSensorLog.getSilentSettings().get("Female Mute 1"))
+                    .femaleMute2((long) parsedSensorLog.getSilentSettings().get("Female Mute 2"))
+                    .maleMute1((long) parsedSensorLog.getSilentSettings().get("Male Mute 1"))
+                    .maleMute2((long) parsedSensorLog.getSilentSettings().get("Male Mute 2"))
+                    .birdVolume((long) parsedSensorLog.getVolumeSettings().get("Bird Volume"))
+                    .cricketVolume((long) parsedSensorLog.getVolumeSettings().get("Cricket Volume"))
+                    .dingdongVolume((long) parsedSensorLog.getVolumeSettings().get("Dingdong Volume"))
+                    .femaleVolume((long) parsedSensorLog.getVolumeSettings().get("Female Volume"))
+                    .maleVolume((long) parsedSensorLog.getVolumeSettings().get("Male Volume"))
+                    .minuetVolume((long) parsedSensorLog.getVolumeSettings().get("Minuet Volume"))
+                    .systemVolume((long) parsedSensorLog.getVolumeSettings().get("System Volume"))
+                    .latitude(Double.parseDouble(!sensorLogLatitudeAndLongitudeAsString.isEmpty() ? sensorLogLatitudeAndLongitudeAsString.get(0) : "0"))
+                    .longitude(Double.parseDouble(!sensorLogLatitudeAndLongitudeAsString.isEmpty() ? sensorLogLatitudeAndLongitudeAsString.get(1) : "0"))
+                    .lastlyModifiedWith(sensorLogContentInstance)
+                    .createdAt(LocalDateTime.now())
+                    .updatedAt(LocalDateTime.now())
+                    .build();
+            return sensorRepository.saveAndFlush(sensor);
+        } else {
+            Sensor sensor = existingSensorOpt.get();
+            // Only update if groupPositionNumber or coordinates or group changed
+            boolean needsUpdate = false;
+            Long newGroupPositionNumber = (long) parsedSensorLog.getGroupPositionNumber();
+            Double newLatitude = Double.parseDouble(!sensorLogLatitudeAndLongitudeAsString.isEmpty() ? sensorLogLatitudeAndLongitudeAsString.get(0) : "0");
+            Double newLongitude = Double.parseDouble(!sensorLogLatitudeAndLongitudeAsString.isEmpty() ? sensorLogLatitudeAndLongitudeAsString.get(1) : "0");
+            if (!Objects.equals(sensor.getGroupPositionNumber(), newGroupPositionNumber)
+                || !Objects.equals(sensor.getLatitude(), newLatitude)
+                || !Objects.equals(sensor.getLongitude(), newLongitude)
+                || !Objects.equals(sensor.getSensorGroup(), sensorGroup)
+            ) {
+                sensor.setGroupPositionNumber(newGroupPositionNumber);
+                sensor.setLatitude(newLatitude);
+                sensor.setLongitude(newLongitude);
+                sensor.setSensorGroup(sensorGroup);
+                sensor.setLastlyModifiedWith(sensorLogContentInstance);
+                sensor.setUpdatedAt(LocalDateTime.now());
+                needsUpdate = true;
+            }
+            if (needsUpdate) {
+                return sensorRepository.save(sensor);
+            } else {
+                return sensor;
+            }
+        }
     }
 
     @Transactional
@@ -449,8 +551,8 @@ public class SensorLogSchedulerService {
                 .maleVolume((long) parsedSensorLog.getVolumeSettings().get("Male Volume"))
                 .minuetVolume((long) parsedSensorLog.getVolumeSettings().get("Minuet Volume"))
                 .systemVolume((long) parsedSensorLog.getVolumeSettings().get("System Volume"))
-                .latitude(sensor.getLatitude())
-                .longitude(sensor.getLongitude())
+                .latitude(Double.parseDouble(!sensorLogLatitudeAndLongitudeAsString.isEmpty() ? sensorLogLatitudeAndLongitudeAsString.get(0) : "0"))
+                .longitude(Double.parseDouble(!sensorLogLatitudeAndLongitudeAsString.isEmpty() ? sensorLogLatitudeAndLongitudeAsString.get(1) : "0"))
                 .lastlyModifiedWith(sensorLogContentInstance)
                 .serverTime(decodeServerTime(parsedSensorLog.getServerTime()))
                 .updatedAt(LocalDateTime.now())
