@@ -136,7 +136,7 @@ public class SensorGroupResponseDto {
 
     public SensorGroupResponseDto(SensorGroup sensorGroup) {
         this.sensorGroupId = sensorGroup.getId();
-        this.order = sensorGroup.getOrder();
+        this.order = sensorGroup.getDisplayOrder();
         this.groupKey = sensorGroup.getGroupKey();
         this.sensorCount = sensorGroup.getSensorCount();
         this.faultCount = sensorGroup.getFaultCount();

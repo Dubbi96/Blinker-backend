@@ -55,6 +55,6 @@ public interface SensorGroupRepository extends JpaRepository<SensorGroup, String
         """, nativeQuery = true)
     List<SensorGroup> findUnrelatedSensorGroups();
 
-    @Query("SELECT MAX(s.order) FROM SensorGroup s")
+    @Query("SELECT MAX(s.displayOrder) FROM SensorGroup s")
     Long findMaxOrder();
 }

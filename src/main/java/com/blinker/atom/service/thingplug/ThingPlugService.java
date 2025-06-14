@@ -131,7 +131,7 @@ public class ThingPlugService {
             if (!sensorGroupRepository.existsById(sensorGroupId)) {
                 sensorGroupRepository.save(SensorGroup.builder()
                     .id(sensorGroupId)
-                    .order(order++)
+                    .displayOrder(order++)
                     .build());
             }
         }

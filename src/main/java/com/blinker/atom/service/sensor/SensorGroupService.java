@@ -45,7 +45,7 @@ public class SensorGroupService {
         List<SensorGroup> sensorGroups = sensorGroupRepository.findSensorGroupsWithSensorsByUserId(appUser.getId());
 
         return sensorGroups.stream()
-                .sorted(Comparator.comparing(SensorGroup::getOrder, Comparator.nullsLast(Long::compareTo)))
+                .sorted(Comparator.comparing(SensorGroup::getDisplayOrder, Comparator.nullsLast(Long::compareTo)))
                 .map(sensorGroup -> {
                     SensorGroupResponseDto dto = new SensorGroupResponseDto(sensorGroup);
 
@@ -75,7 +75,7 @@ public class SensorGroupService {
 
         return sensorGroups.stream()
                 .sorted(Comparator.comparing(
-                    SensorGroup::getOrder,
+                    SensorGroup::getDisplayOrder,
                     Comparator.nullsLast(Long::compareTo) // ← Long 타입이라고 가정
                 ))
                 .map(sensorGroup -> {
@@ -119,7 +119,7 @@ public class SensorGroupService {
             String sensorGroupId = validIds.get(i);
             SensorGroup sensorGroup = sensorGroupMap.get(sensorGroupId);
 
-            if (sensorGroup != null && !sensorGroup.getOrder().equals((long) i)) {
+            if (sensorGroup != null && !sensorGroup.getDisplayOrder().equals((long) i)) {
                 sensorGroup.updateOrder((long) i);
                 updatedSensorGroups.add(sensorGroup);
             }

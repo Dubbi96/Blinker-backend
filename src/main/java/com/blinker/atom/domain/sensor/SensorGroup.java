@@ -32,7 +32,7 @@ public class SensorGroup {
     private String ssid;
 
     @Column(name = "display_order")
-    private Long order;
+    private Long displayOrder;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     @Temporal(TemporalType.TIMESTAMP)
@@ -50,7 +50,7 @@ public class SensorGroup {
     private List<Sensor> sensors;
 
     public void updateOrder(Long order) {
-        this.order = order;
+        this.displayOrder = order;
     }
 
     @PrePersist
