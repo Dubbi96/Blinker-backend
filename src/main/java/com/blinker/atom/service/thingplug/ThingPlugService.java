@@ -16,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpClientErrorException;
 
 import java.util.ArrayList;
@@ -118,6 +119,7 @@ public class ThingPlugService {
         return matcher.find() ? matcher.group(1) : null;
     }
 
+    @Transactional
     public List<String> fetchRemoteCSEIds() {
         String url = String.format("%s/%s/v1_0?fu=1&ty=16", baseUrl, appEui);
         String response = HttpClientUtil.get(url, new ThingPlugHeaderProvider(origin, uKey, requestId));

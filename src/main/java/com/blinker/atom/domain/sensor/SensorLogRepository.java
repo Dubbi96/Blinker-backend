@@ -13,8 +13,8 @@ import java.util.Optional;
 
 @Repository
 public interface SensorLogRepository extends JpaRepository<SensorLog, Long> {
-    @Query("SELECT MAX(sl.createdAt) FROM SensorLog sl")
-    LocalDateTime findMaxCreatedAt();
+    @Query("SELECT MAX(sl.createdAt) FROM SensorLog sl WHERE sl.sensorGroup.id = :sensorGroupId")
+    LocalDateTime findMaxCreatedAt(@Param("sensorGroupId") String sensorGroupId);
 
     @Modifying
     @Transactional

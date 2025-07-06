@@ -147,6 +147,10 @@ public class Sensor {
         this.createdAt = LocalDateTime.now();
     }
 
+    public void setUpdatedAt(){
+        this.updatedAt = LocalDateTime.now();
+    }
+
     public void updateAddress(String address) {
         this.address = address;
     }

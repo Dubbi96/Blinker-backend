@@ -151,43 +151,51 @@ public class SensorLogSchedulerService {
         synchronized (sensorLogLock) {
             log.info("🔹 Sensor Log 스케줄러 실행...");
 
-            LocalDateTime lastSavedLogTime = sensorLogRepository.findMaxCreatedAt();
-            if (lastSavedLogTime == null) {
-                lastSavedLogTime = LocalDateTime.now().minusHours(12);
-                log.warn("sensor_log 테이블이 비어있습니다. 현재 시각을 기준으로 설정합니다: {}", lastSavedLogTime);
-            } else {
-                log.info("마지막 저장된 로그 시각: {}", lastSavedLogTime);
-            }
-
+            // 중복 이벤트 코드 목록은 전체 공통으로 사용됨
             Set<String> existingEventCodes = Collections.synchronizedSet(new HashSet<>(sensorLogRepository.findAllEventCodes()));
 
-            // 모든 sensor_group 조회
+            // 모든 SensorGroup 조회
             List<SensorGroup> sensorGroups = sensorGroupRepository.findAll();
 
-            for (SensorGroup group : sensorGroups) {
+            // 병렬 처리로 성능 개선
+            sensorGroups.parallelStream().forEach(group -> {
                 String sensorGroupId = group.getId();
-                String url = String.format("%s/%s/v1_0/remoteCSE-%s/container-LoRa?fu=1&ty=4",
-                        baseUrl, appEui, sensorGroupId);
 
-                String response = HttpClientUtil.get(url, new ThingPlugHeaderProvider(origin, uKey, requestId));
-                log.info("Fetching Sensor Log at URL: {}", response);
-                if (response == null || response.isEmpty()) {
-                    log.warn("API 응답이 없음. SensorGroup: {}", sensorGroupId);
-                    continue;
-                }
-                // XML 파싱하여 contentInstance 리스트 추출
-                List<String> eventCodes = extractContentInstanceUri(response);
-                List<String> newEventCodes = new ArrayList<>();
-                for (String eventCode : eventCodes) {
-                    if (existingEventCodes.contains(eventCode)) {
-                        log.info("중복된 이벤트 코드 (저장되지 않음): {}", eventCode);  // 중복된 이벤트 코드 저장
-                    } else {
-                        newEventCodes.add(eventCode);  // 새로운 이벤트 코드 저장
+                try {
+                    // 그룹별 로그 기준 시간 조회
+                    LocalDateTime lastSavedLogTime = sensorLogRepository
+                            .findMaxCreatedAtBySensorGroupId(sensorGroupId)
+                            .orElse(LocalDateTime.now().minusHours(12));
+
+                    String url = String.format("%s/%s/v1_0/remoteCSE-%s/container-LoRa?fu=1&ty=4",
+                            baseUrl, appEui, sensorGroupId);
+
+                    String response = HttpClientUtil.get(url, new ThingPlugHeaderProvider(origin, uKey, requestId));
+                    log.info("🔸 SensorGroup: {} - API 응답 수신 완료", sensorGroupId);
+
+                    if (response == null || response.isEmpty()) {
+                        log.warn("❌ API 응답이 없음. SensorGroup: {}", sensorGroupId);
+                        return;
                     }
+
+                    // XML 파싱하여 contentInstance 리스트 추출
+                    List<String> eventCodes = extractContentInstanceUri(response);
+                    List<String> newEventCodes = eventCodes.stream()
+                            .filter(code -> {
+                                if (existingEventCodes.contains(code)) {
+                                    log.info("중복된 이벤트 코드 (저장되지 않음): {}", code);
+                                    return false;
+                                }
+                                return true;
+                            })
+                            .toList();
+
+                    saveSensorLogs(newEventCodes, group, lastSavedLogTime);
+
+                } catch (Exception e) {
+                    log.error("❌ SensorGroup '{}' 처리 중 오류 발생", sensorGroupId, e);
                 }
-                // SensorLog 저장 (중복 방지)
-                saveSensorLogs(newEventCodes, group, lastSavedLogTime);
-            }
+            });
         }
     }
 
@@ -401,6 +409,7 @@ public class SensorLogSchedulerService {
                 Sensor existingSensor = sensorRepository.findByDeviceNumber(deviceNumberCheck).orElse(null);
                 if (existingSensor != null) {
                     updateSensor(existingSensor, parsedSensorLog, sensorLogLatitudeAndLongitudeAsString, sensorLogContentInstance);
+                    existingSensor.setUpdatedAt();
                     sensorRepository.save(existingSensor);
                     log.info("🆙 센서정보 업데이트 됨 : {} ", existingSensor.getDeviceNumber());
                 } else {
