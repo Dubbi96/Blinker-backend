@@ -1,4 +1,10 @@
 spring:
+  task:
+    execution:
+      pool:
+        core-size: 5   # 동시에 최대 5개 그룹 병렬 처리
+        max-size: 10
+        queue-capacity: 100
   profiles:
     include:  jpa, datasource
   main:

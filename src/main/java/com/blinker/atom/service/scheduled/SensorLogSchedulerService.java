@@ -836,4 +836,20 @@ public class SensorLogSchedulerService {
         sensorLogRepository.deleteBySensorGroup(group);
     }
 
+    @Async("taskExecutor")
+    public void asyncFetchLogsForGroup(String sensorGroupId) {
+        try {
+            fetchAndUpdateLogsForSensorGroup(sensorGroupId);  // 이건 @Transactional(REQUIRES_NEW)
+        } catch (Exception e) {
+            log.error("❌ SensorGroup '{}' 처리 중 오류 발생", sensorGroupId, e);
+        }
+    }
+
+    public void fastAndSafeFetchAllLogs() {
+        List<SensorGroup> allGroups = sensorGroupRepository.findAll();
+        for (SensorGroup group : allGroups) {
+            asyncFetchLogsForGroup(group.getId());  // 병렬 실행
+        }
+        log.info("✅ 모든 로그 병렬 수집 시작 요청 완료 (비동기 처리 중)");
+    }
 }

@@ -2,6 +2,7 @@ package com.blinker.atom.util.httpclientutil;
 
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 
 
 @AllArgsConstructor
@@ -14,10 +15,11 @@ public class ThingPlugHeaderProvider implements HttpHeaderProvider {
     public HttpHeaders createHeaders() {
         HttpHeaders headers = new HttpHeaders();
         headers.set("Accept", "application/xml");
-        headers.set("Content-Type", "application/vnd.onem2m-res+xml");
-        headers.set("X-M2M-Origin", origin);
         headers.set("X-M2M-RI", requestId);
+        headers.set("X-M2M-Origin", origin);
         headers.set("uKey", uKey);
+        headers.set("locale", "ko");
+        headers.setContentType(MediaType.parseMediaType("application/vnd.onem2m-res+xml"));
         return headers;
     }
 }

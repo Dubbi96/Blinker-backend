@@ -21,7 +21,7 @@ public class ScheduledServiceController {
     @PostMapping("/sensor-log/start")
     @Operation(summary = "보유한 모든 SensorGroup의 로그 수집", description = "⛔️ 멀티 쓰레드 환경에서 동작하므로 사용에 주의 요함")
     public String sensorLogScheduler() {
-        sensorLogSchedulerService.fetchAndSaveSensorLogs();
+        sensorLogSchedulerService.fastAndSafeFetchAllLogs();
         return "Sensor Log 스케줄링이 시작";
     }
 
