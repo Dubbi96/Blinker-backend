@@ -158,7 +158,7 @@ public class SensorLogSchedulerService {
             List<SensorGroup> sensorGroups = sensorGroupRepository.findAll();
 
             // 병렬 처리로 성능 개선
-            sensorGroups.parallelStream().forEach(group -> {
+            sensorGroups.forEach(group -> {
                 String sensorGroupId = group.getId();
 
                 try {
