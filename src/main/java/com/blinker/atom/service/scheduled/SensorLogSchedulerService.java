@@ -12,7 +12,6 @@ import com.blinker.atom.util.httpclientutil.ThingPlugHeaderProvider;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.annotation.PreDestroy;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
@@ -33,7 +32,9 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -847,9 +848,28 @@ public class SensorLogSchedulerService {
 
     public void fastAndSafeFetchAllLogs() {
         List<SensorGroup> allGroups = sensorGroupRepository.findAll();
+
+        ExecutorService executor = Executors.newFixedThreadPool(5); // 병렬 5개 제한
+        List<Future<?>> futures = new ArrayList<>();
+
         for (SensorGroup group : allGroups) {
-            asyncFetchLogsForGroup(group.getId());  // 병렬 실행
+            futures.add(executor.submit(() -> {
+                try {
+                    fetchAndUpdateLogsForSensorGroup(group.getId()); // 기존 방식 그대로 호출
+                } catch (Exception e) {
+                    log.error("❌ SensorGroup '{}' 처리 중 오류 발생", group.getId(), e);
+                }
+            }));
         }
-        log.info("✅ 모든 로그 병렬 수집 시작 요청 완료 (비동기 처리 중)");
+
+        for (Future<?> future : futures) {
+            try {
+                future.get(); // 에러 시 처리
+            } catch (Exception e) {
+                log.error("병렬 처리 에러", e);
+            }
+        }
+
+        executor.shutdown();
     }
 }
