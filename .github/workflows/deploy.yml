@@ -49,6 +49,7 @@ jobs:
         gcloud run deploy blinker-backend1 \
           --image=asia-northeast3-docker.pkg.dev/blinker-backend1/blinker-repo/blinker-backend1:latest \
           --platform=managed \
+          --vpc-connector=my-connector \
           --region=asia-northeast3 \
           --allow-unauthenticated \
           --add-cloudsql-instances=blinker-db:asia-northeast3:blinker-atom-db \
