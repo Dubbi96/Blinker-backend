@@ -738,7 +738,7 @@ public class SensorLogSchedulerService {
     /**
      * 오래된 로그를 트랜잭션(readOnly)으로 안전하게 조회
      */
-    @Transactional
+    @Transactional(readOnly = true)
     public List<SensorLog> fetchLogsOlderThanCutoff(LocalDateTime cutoff) {
         return sensorLogRepository.findLogsOlderThan(cutoff);
     }
@@ -805,6 +805,31 @@ public class SensorLogSchedulerService {
 
         saveSensorLogs(newEventCodes, group, lastSavedLogTime);
         updateSensorFromSensorLogs(sensorGroupId);
+        checkRedirectedSensor(sensorGroupId, newEventCodes, group);
+    }
+
+    private void checkRedirectedSensor(String sensorGroupId, List<String> newEventCodes, SensorGroup group) {
+        // 추가: 센서가 다른 그룹에서 이동해온 경우, 기존 센서의 그룹을 업데이트
+        for (String eventCode : newEventCodes) {
+            Optional<SensorLog> optLog = sensorLogRepository.findByEventCode(eventCode);
+            if (optLog.isPresent()) {
+                SensorLog logs = optLog.get();
+                String deviceNumber = logs.getSensorDeviceNumber();
+                if (deviceNumber != null && !deviceNumber.isBlank()) {
+                    Optional<Sensor> sensorOpt = sensorRepository.findByDeviceNumber(deviceNumber);
+                    if (sensorOpt.isPresent()) {
+                        Sensor sensor = sensorOpt.get();
+                        if (!sensor.getSensorGroup().getId().equals(sensorGroupId)) {
+                            log.info("🔁 센서 '{}' 가 그룹 '{}' → '{}' 으로 이동됨을 감지하여 그룹을 이전합니다.",
+                                     deviceNumber, sensor.getSensorGroup().getId(), sensorGroupId);
+                            sensor.setSensorGroup(group);
+                            sensor.setUpdatedAt();
+                            sensorRepository.save(sensor);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     @Transactional
@@ -837,15 +862,6 @@ public class SensorLogSchedulerService {
         sensorLogRepository.deleteBySensorGroup(group);
     }
 
-    @Async("taskExecutor")
-    public void asyncFetchLogsForGroup(String sensorGroupId) {
-        try {
-            fetchAndUpdateLogsForSensorGroup(sensorGroupId);  // 이건 @Transactional(REQUIRES_NEW)
-        } catch (Exception e) {
-            log.error("❌ SensorGroup '{}' 처리 중 오류 발생", sensorGroupId, e);
-        }
-    }
-
     public void fastAndSafeFetchAllLogs() {
         List<SensorGroup> allGroups = sensorGroupRepository.findAll();
 
@@ -857,7 +873,10 @@ public class SensorLogSchedulerService {
                 try {
                     fetchAndUpdateLogsForSensorGroup(group.getId()); // 기존 방식 그대로 호출
                 } catch (Exception e) {
-                    log.error("❌ SensorGroup '{}' 처리 중 오류 발생", group.getId(), e);
+                    log.error("SensorGroup '{}' 처리 중 오류 발생", group.getId(), e);
+                }
+                finally {
+                    log.debug("SensorGroup '{}' 작업 완료됨", group.getId());
                 }
             }));
         }

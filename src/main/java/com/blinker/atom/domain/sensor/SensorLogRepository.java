@@ -79,4 +79,6 @@ public interface SensorLogRepository extends JpaRepository<SensorLog, Long> {
      * Find all unprocessed logs for a sensor group.
      */
     List<SensorLog> findAllBySensorGroupAndIsProcessedFalse(SensorGroup sensorGroup);
+
+    Optional<SensorLog> findByEventCode(String eventCode);
 }

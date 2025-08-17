@@ -1,7 +1,7 @@
 spring:
   datasource:
     hikari:
-      leak-detection-threshold: 10000
+      leakDetectionThreshold: 20000 # 20초 이상 커넥션 점유 시 경고
       connection-timeout: 30000
       max-lifetime: 500000
       maximum-pool-size: 10 #잠깐 늘림
