@@ -39,6 +39,22 @@ spring:
 
 ---
 spring:
+  config:
+    activate:
+      on-profile: staging
+  datasource:
+    hikari:
+      username: postgres
+      password: ${DB_PASSWORD}
+      jdbc-url: jdbc:postgresql://google/blinker
+      driver-class-name: org.postgresql.Driver
+      data-source-properties:
+        cloudSqlInstance: ${CLOUD_SQL_INSTANCE:blinker-staging-wooin:asia-northeast3:blinker-atom-db-staging}
+        socketFactory: com.google.cloud.sql.postgres.SocketFactory
+    url: jdbc:postgresql://google/blinker?cloudSqlInstance=${CLOUD_SQL_INSTANCE:blinker-staging-wooin:asia-northeast3:blinker-atom-db-staging}&socketFactory=com.google.cloud.sql.postgres.SocketFactory
+
+---
+spring:
   datasource:
     url: jdbc:h2:mem:test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;CASE_INSENSITIVE_IDENTIFIERS=TRUE;DATABASE_TO_UPPER=FALSE;NON_KEYWORDS=year
     hikari:

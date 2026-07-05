@@ -1,0 +1,135 @@
+name: Deploy to Cloud Run (staging)
+
+# staging 브랜치 push → 별도 GCP 계정(스테이징 프로젝트)의 Cloud Run으로 배포합니다.
+#
+# 사전 설정 (Settings → Secrets and variables → Actions):
+#   [Variables]
+#   - STAGING_GCP_PROJECT        스테이징 GCP 프로젝트 ID (예: blinker-staging)
+#   - STAGING_CLOUD_SQL_INSTANCE 스테이징 Cloud SQL connection name (예: blinker-staging:asia-northeast3:blinker-atom-db-staging)
+#   - STAGING_GCS_BUCKET         스테이징 로그 아카이브 버킷 이름
+#   - STAGING_VPC_CONNECTOR      (선택) 스테이징 VPC 커넥터 이름 — ThingPlug 고정 IP가 필요할 때만
+#   [Secrets]
+#   - GCP_SA_KEY                 기존(운영) SA 키 — 이미지에 구워지는 키. 승격 후 운영에서 동일 이미지가
+#                                동작해야 하므로 스테이징 빌드에도 운영 키를 사용하고,
+#                                대신 이 SA에 스테이징 리소스(Cloud SQL/GCS) 접근 권한을 교차 부여한다.
+#   - GCP_SA_KEY_STAGING         스테이징 계정 배포용 SA 키 (레지스트리 push + Cloud Run 배포)
+#   - DB_PASSWORD_STAGING        스테이징 Cloud SQL postgres 비밀번호
+#   - JWT_SECRET_STAGING         스테이징용 JWT 시크릿 (운영과 분리 권장)
+#   - KAKAO_REST_KEY_STAGING     신규 Kakao Developers 앱의 REST API 키
+
+on:
+  push:
+    branches:
+      - staging
+
+env:
+  PROD_IMAGE_BASE: asia-northeast3-docker.pkg.dev/blinker-backend1/blinker-repo/blinker-backend1
+  STAGING_IMAGE_BASE: asia-northeast3-docker.pkg.dev/${{ vars.STAGING_GCP_PROJECT }}/blinker-repo/blinker-backend1
+
+jobs:
+  deploy-staging:
+    runs-on: ubuntu-latest
+
+    steps:
+
+    - name: Note Build Start Time
+      id: start_time
+      run: echo "START_TIME=$(date +%s)" >> $GITHUB_ENV
+
+    - name: Set Image Tag (staging-<sha>)
+      run: echo "IMAGE_TAG=staging-${GITHUB_SHA::7}" >> $GITHUB_ENV
+
+    - name: 1️⃣ Checkout Repository
+      uses: actions/checkout@v3
+
+    - name: 2️⃣ Decode & Restore Service Account Key (운영 SA — 이미지에 포함될 키)
+      run: |
+        echo "${{ secrets.GCP_SA_KEY }}" | base64 --decode > blinker-backend-key.json
+        ls -l blinker-backend-key.json
+
+    - name: 3️⃣ Build Docker Image (스테이징/운영 레지스트리 공용 — 동일 digest)
+      run: docker build -t $STAGING_IMAGE_BASE:$IMAGE_TAG -t $PROD_IMAGE_BASE:$IMAGE_TAG .
+
+    - name: 4️⃣ Authenticate with GCP (staging 계정)
+      uses: google-github-actions/auth@v1
+      with:
+        credentials_json: "${{ secrets.GCP_SA_KEY_STAGING }}"
+
+    - name: 5️⃣ Push Image to Staging Artifact Registry
+      run: |
+        gcloud auth configure-docker asia-northeast3-docker.pkg.dev --quiet
+        docker push $STAGING_IMAGE_BASE:$IMAGE_TAG
+
+    - name: 6️⃣ Deploy to Cloud Run (staging 프로젝트)
+      run: |
+        EXTRA_FLAGS=""
+        if [ -n "${{ vars.STAGING_VPC_CONNECTOR }}" ]; then
+          EXTRA_FLAGS="--vpc-connector=${{ vars.STAGING_VPC_CONNECTOR }} --vpc-egress=all-traffic"
+        fi
+        gcloud run deploy blinker-backend1-staging \
+          --project=${{ vars.STAGING_GCP_PROJECT }} \
+          --image=$STAGING_IMAGE_BASE:$IMAGE_TAG \
+          --platform=managed \
+          --region=asia-northeast3 \
+          --allow-unauthenticated \
+          $EXTRA_FLAGS \
+          --add-cloudsql-instances=${{ vars.STAGING_CLOUD_SQL_INSTANCE }} \
+          --set-env-vars "SPRING_PROFILES_ACTIVE=staging,CLOUD_SQL_INSTANCE=${{ vars.STAGING_CLOUD_SQL_INSTANCE }},GCS_BUCKET_NAME=${{ vars.STAGING_GCS_BUCKET }},THINGPLUG_URL=http://thingplugpf.sktiot.com:9000,GOOGLE_APPLICATION_CREDENTIALS=/app/blinker-backend-key.json,THINGPLUG_UKEY=${{ secrets.THINGPLUG_UKEY }},JWT_SECRET=${{ secrets.JWT_SECRET_STAGING }},KAKAO_REST_KEY=${{ secrets.KAKAO_REST_KEY_STAGING }},DISCORD_WEBHOOK=${{ secrets.DISCORD_WEBHOOK }},DB_PASSWORD=${{ secrets.DB_PASSWORD_STAGING }}"
+
+    - name: 7️⃣ Authenticate with GCP (운영 계정) — 승격용 이미지 사본 push
+      uses: google-github-actions/auth@v1
+      with:
+        credentials_json: "${{ secrets.GCP_SA_KEY }}"
+
+    - name: 8️⃣ Push Same Image to Prod Artifact Registry (운영 승격 대비, 동일 digest)
+      run: |
+        gcloud auth configure-docker asia-northeast3-docker.pkg.dev --quiet
+        docker push $PROD_IMAGE_BASE:$IMAGE_TAG
+
+    - name: 검증 완료 후 운영 승격용 태그 안내
+      run: |
+        echo "### Staging 배포 완료 🚀" >> $GITHUB_STEP_SUMMARY
+        echo "- 이미지 태그: \`$IMAGE_TAG\`" >> $GITHUB_STEP_SUMMARY
+        echo "- 동일 이미지가 운영 레지스트리에도 push되어 있습니다." >> $GITHUB_STEP_SUMMARY
+        echo "- Staging 검증 완료 후 'Deploy to Cloud Run (prod)' 워크플로를 수동 실행하고 위 태그를 입력하면 **검증된 이미지가 그대로 운영에 배포**됩니다." >> $GITHUB_STEP_SUMMARY
+
+    - name: 종료 시간 기록
+      id: end_time
+      run: |
+        echo "END_TIME=$(date +%s)" >> $GITHUB_ENV
+        echo "BUILD_TIME=$(( $(date +%s) - $START_TIME ))" >> $GITHUB_ENV
+
+    - name: 배포 실패 시 종료 시간 기록
+      if: failure()
+      run: |
+        echo "END_TIME=$(date +%s)" >> $GITHUB_ENV
+        echo "BUILD_TIME=$(( $(date +%s) - $START_TIME ))" >> $GITHUB_ENV
+
+    - name: 빌드 실패 Discord 알림
+      if: failure()
+      uses: tsickert/discord-webhook@v6.0.0
+      with:
+        webhook-url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        embed-title: "🌋 **[staging] 배포 실패.**"
+        embed-url: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        embed-description: |
+          𝑒 **배포 환경:** `staging`
+          𝘣 **대상 브랜치:** `${{ github.ref_name }}`
+          𝑡 **소요 시간:** `${{ env.BUILD_TIME }}초`
+          𝒈 **액션 링크:** https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        embed-color: "16711680"
+
+    - name: 빌드 성공 Discord 알림
+      if: success()
+      uses: tsickert/discord-webhook@v6.0.0
+      with:
+        webhook-url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        embed-title: "✅ **[staging] 배포 성공.**"
+        embed-url: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        embed-description: |
+          𝑒 **배포 환경:** `staging`
+          𝘣 **대상 브랜치:** `${{ github.ref_name }}`
+          𝑡 **이미지 태그:** `${{ env.IMAGE_TAG }}`
+          𝑡 **소요 시간:** `${{ env.BUILD_TIME }}초`
+          𝒈 **액션 링크:** https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        embed-color: "3066993"

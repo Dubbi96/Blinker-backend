@@ -222,11 +222,21 @@ public class SensorService {
 
     @Transactional
     public void updateOrCreateSensorMemo(AppUser appUser, Long sensorId, Long appUserId, SensorMemoRequestDto sensorMemoRequestDto) {
-        if (!appUser.getId().equals(appUserId)) throw new CustomException(ErrorValue.UNAUTHORIZED_SERVICE.getMessage());
+        boolean isAdmin = appUser.getRoles().contains(Role.ADMIN);
+        if (!isAdmin && !appUser.getId().equals(appUserId)) throw new CustomException(ErrorValue.UNAUTHORIZED_SERVICE.getMessage());
+
+        AppUser memoOwner = appUser.getId().equals(appUserId)
+                ? appUser
+                : appUserRepository.findAppUserById(appUserId)
+                .orElseThrow(() -> new CustomException(ErrorValue.ACCOUNT_NOT_FOUND.getMessage()));
         Sensor sensor = sensorRepository.findSensorById(sensorId).orElseThrow(() -> new CustomException(ErrorValue.SENSOR_NOT_FOUND.getMessage()));
-        AppUserSensor appUserSensor = appUserSensorRepository.findBySensorAndAppUser(sensor, appUser)
+
+        boolean isMemoOwnerAuthorized = appUserSensorGroupRepository.existsByAppUserAndSensorGroup(memoOwner, sensor.getSensorGroup());
+        if (!isMemoOwnerAuthorized) throw new CustomException(ErrorValue.UNAUTHORIZED_SERVICE.getMessage());
+
+        AppUserSensor appUserSensor = appUserSensorRepository.findBySensorAndAppUser(sensor, memoOwner)
                 .orElse(AppUserSensor.builder()
-                        .appUser(appUser)
+                        .appUser(memoOwner)
                         .sensor(sensor)
                         .build());
         appUserSensor.updateMemo(sensorMemoRequestDto.getMemo());

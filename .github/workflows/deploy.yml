@@ -1,53 +1,47 @@
-name: Deploy to Cloud Run
+name: Deploy to Cloud Run (prod)
+
+# 운영 배포는 자동으로 실행되지 않습니다.
+# staging 검증 완료 후 Actions 탭에서 이 워크플로를 수동 실행(workflow_dispatch)하고,
+# staging 배포 시 발급된 이미지 태그(예: staging-abc1234)를 입력하면
+# 재빌드 없이 검증된 이미지가 그대로 운영에 배포됩니다.
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Staging에서 검증 완료된 이미지 태그 (예: staging-abc1234)"
+        required: true
+        type: string
+
+env:
+  IMAGE_BASE: asia-northeast3-docker.pkg.dev/blinker-backend1/blinker-repo/blinker-backend1
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
-    env:
-      JWT_SECRET: ${{ secrets.JWT_SECRET }}
-      KAKAO_REST_KEY: ${{ secrets.KAKAO_REST_KEY }}
-      DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-      THINGPLUG_UKEY: ${{ secrets.THINGPLUG_UKEY }}
+    environment: production
 
     steps:
 
     - name: Note Build Start Time
-      id : start_time
-      run : echo "START_TIME=$(date +%s)" >> $GITHUB_ENV
+      id: start_time
+      run: echo "START_TIME=$(date +%s)" >> $GITHUB_ENV
 
-    - name: 1️⃣ Checkout Repository
-      uses: actions/checkout@v3
-
-    - name: 2️⃣ Decode & Restore Service Account Key
-      run: |
-        echo "${{ secrets.GCP_SA_KEY }}" | base64 --decode > blinker-backend-key.json
-        ls -l blinker-backend-key.json
-
-    - name: 3️⃣ Authenticate with GCP
+    - name: 1️⃣ Authenticate with GCP
       uses: google-github-actions/auth@v1
       with:
         credentials_json: "${{ secrets.GCP_SA_KEY }}"
 
-    - name: 4️⃣ Configure Docker Authentication
-      run: gcloud auth configure-docker asia-northeast3-docker.pkg.dev
+    - name: 2️⃣ 승격 대상 이미지 존재 확인
+      run: |
+        gcloud artifacts docker images describe \
+          $IMAGE_BASE:${{ inputs.image_tag }} \
+          --format="value(image_summary.digest)"
 
-    - name: 5️⃣ Build Docker Image
-      run: docker build -t asia-northeast3-docker.pkg.dev/blinker-backend1/blinker-repo/blinker-backend1:latest .
-
-    - name: 6️⃣ Push Docker Image to Artifact Registry
-      run: docker push asia-northeast3-docker.pkg.dev/blinker-backend1/blinker-repo/blinker-backend1:latest
-
-    - name: 7️⃣ Deploy to Cloud Run
+    - name: 3️⃣ Deploy to Cloud Run (prod)
       run: |
         gcloud run deploy blinker-backend1 \
-          --image=asia-northeast3-docker.pkg.dev/blinker-backend1/blinker-repo/blinker-backend1:latest \
+          --image=$IMAGE_BASE:${{ inputs.image_tag }} \
           --platform=managed \
           --vpc-connector=my-connector \
           --vpc-egress=all-traffic \
@@ -56,19 +50,17 @@ jobs:
           --add-cloudsql-instances=blinker-db:asia-northeast3:blinker-atom-db \
           --set-env-vars "SPRING_PROFILES_ACTIVE=prod,THINGPLUG_URL=http://thingplugpf.sktiot.com:9000,GOOGLE_APPLICATION_CREDENTIALS=/app/blinker-backend-key.json,THINGPLUG_UKEY=${{ secrets.THINGPLUG_UKEY }},JWT_SECRET=${{ secrets.JWT_SECRET }},KAKAO_REST_KEY=${{ secrets.KAKAO_REST_KEY }},DISCORD_WEBHOOK=${{ secrets.DISCORD_WEBHOOK }},DB_PASSWORD=${{ secrets.DB_PASSWORD }}"
 
-
     - name: 종료 시간 기록
       id: end_time
       run: |
         echo "END_TIME=$(date +%s)" >> $GITHUB_ENV
         echo "BUILD_TIME=$(( $(date +%s) - $START_TIME ))" >> $GITHUB_ENV
-      
 
-    - name : 배포 실패 시 종료 시간 기록
+    - name: 배포 실패 시 종료 시간 기록
       if: failure()
-      run : |
-          echo "END_TIME=$(date +%s)" >> $GITHUB_ENV
-          echo "BUILD_TIME=$(( $(date +%s) - $START_TIME ))" >> $GITHUB_ENV
+      run: |
+        echo "END_TIME=$(date +%s)" >> $GITHUB_ENV
+        echo "BUILD_TIME=$(( $(date +%s) - $START_TIME ))" >> $GITHUB_ENV
 
     - name: 빌드 실패 Discord 알림
       if: failure()
@@ -79,7 +71,7 @@ jobs:
         embed-url: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         embed-description: |
           𝑒 **배포 환경:** `prod`
-          𝘣 **대상 브랜치:** `${{ github.ref_name }}`
+          𝘣 **이미지 태그:** `${{ inputs.image_tag }}`
           𝑡 **소요 시간:** `${{ env.BUILD_TIME }}초`
           𝒈 **액션 링크:** https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         embed-color: "16711680"
@@ -93,7 +85,7 @@ jobs:
         embed-url: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         embed-description: |
           𝑒 **배포 환경:** `prod`
-          𝘣 **대상 브랜치:** `${{ github.ref_name }}`
+          𝘣 **이미지 태그:** `${{ inputs.image_tag }}`
           𝑡 **소요 시간:** `${{ env.BUILD_TIME }}초`
           𝒈 **액션 링크:** https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         embed-color: "3066993"

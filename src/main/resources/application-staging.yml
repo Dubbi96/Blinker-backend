@@ -1,0 +1,5 @@
+gcs:
+  credentials:
+    path: /app/blinker-backend-key.json
+  bucket:
+    name: ${GCS_BUCKET_NAME:dubbi-blinker-staging}
