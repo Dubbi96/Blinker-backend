@@ -306,7 +306,6 @@ public class SensorLogSchedulerService {
 
         // 1️⃣ 아직 처리되지 않은 SensorLog 중, deviceNumber가 기존 sensor에 없는 것만 조회
         List<SensorLog> sensorLogs = new ArrayList<>();
-        List<String> skippedDeviceNumbers = new ArrayList<>();
         // 모든 SensorGroup에 대해 반복
         List<SensorGroup> sensorGroups = sensorGroupRepository.findAll();
         for (SensorGroup sensorGroup : sensorGroups) {
@@ -319,19 +318,8 @@ public class SensorLogSchedulerService {
                 unprocessedSensorLogs = sensorLogRepository.findAllBySensorGroupAndIsProcessedFalseAndDeviceNumberNotIn(sensorGroup, existingDeviceNumbers);
             }
             sensorLogs.addAll(unprocessedSensorLogs);
-            // 디버깅: 이미 등록된 deviceNumber 로그가 스킵됨을 기록 (선택적)
-            List<SensorLog> skippedLogs = sensorLogRepository.findAllBySensorGroupAndIsProcessedFalse(sensorGroup)
-                .stream()
-                .filter(log -> existingDeviceNumbers != null && existingDeviceNumbers.contains(log.getSensorDeviceNumber()))
-                .toList();
-            for (SensorLog skipped : skippedLogs) {
-                skippedDeviceNumbers.add(skipped.getSensorDeviceNumber());
-            }
         }
         log.info("총 {}개의 SensorLog 처리 예정", sensorLogs.size());
-        if (!skippedDeviceNumbers.isEmpty()) {
-            log.info("이미 등록된 deviceNumber로 인해 스킵된 로그 deviceNumbers: {}", skippedDeviceNumbers);
-        }
 
         // 2️⃣ 센서 그룹별로 이미 등록된 deviceNumber를 캐시로 준비
         Map<String, Set<String>> existingDeviceNumbersByGroup = sensorRepository.findAll().stream()
@@ -388,7 +376,14 @@ public class SensorLogSchedulerService {
             String sensorLogCreatedTimeAsString = jsonNode.get("ct").asText();
             LocalDateTime sensorLogCreatedTime = OffsetDateTime.parse(sensorLogCreatedTimeAsString, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toLocalDateTime();
 
-            if (parsedSensorLog.getCmd().equals("67") || parsedSensorLog.getCmd().equals("73")|| parsedSensorLog.getCmd().equals("74")) {
+            String cmd = parsedSensorLog.getCmd();
+            if (cmd == null) {
+                log.warn("⚠ cmd가 null인 로그. eventCode: {} — 스킵", eventCode);
+                markAsProcessed(logEntry);
+                return;
+            }
+
+            if (cmd.equals("67") || cmd.equals("73") || cmd.equals("74")) {
                 List<String> sensorLogLatitudeAndLongitudeAsString = new ArrayList<>();
                 if (jsonNode.has("ppt") && jsonNode.get("ppt").has("gwl")) {
                     String gwlText = jsonNode.get("ppt").get("gwl").asText();
@@ -397,10 +392,10 @@ public class SensorLogSchedulerService {
                     }
                 }
 
-                // 개선: deviceNumber가 null/blank면 처리하지 않음
+                // 개선: deviceNumber가 null/blank/전부 0(비정상 로그)이면 처리하지 않음 — 00000000 유령 센서 생성 방지
                 String deviceNumber = parsedSensorLog.getDeviceNumber();
-                if (deviceNumber == null || deviceNumber.trim().isEmpty()) {
-                    log.warn("⚠ 디바이스 넘버가 null 또는 빈 문자열임. 로그 스킵");
+                if (deviceNumber == null || deviceNumber.trim().isEmpty() || deviceNumber.matches("0+")) {
+                    log.warn("⚠ 디바이스 넘버가 유효하지 않음({}). 로그 스킵", deviceNumber);
                     markAsProcessed(logEntry);
                     return;
                 }
@@ -409,7 +404,7 @@ public class SensorLogSchedulerService {
                 String deviceNumberCheck = parsedSensorLog.getDeviceNumber();
                 Sensor existingSensor = sensorRepository.findByDeviceNumber(deviceNumberCheck).orElse(null);
                 if (existingSensor != null) {
-                    updateSensor(existingSensor, parsedSensorLog, sensorLogLatitudeAndLongitudeAsString, sensorLogContentInstance);
+                    updateSensor(existingSensor, parsedSensorLog, sensorLogContentInstance);
                     existingSensor.setUpdatedAt();
                     sensorRepository.save(existingSensor);
                     log.info("🆙 센서정보 업데이트 됨 : {} ", existingSensor.getDeviceNumber());
@@ -428,7 +423,7 @@ public class SensorLogSchedulerService {
                 sensorGroupRepository.updateSensorGroup(group.getId(), parsedSensorLog.getGroupNumber(), parsedSensorLog.getSignalsInGroup());
             }
 
-            if (parsedSensorLog.getCmd().equals("61") || parsedSensorLog.getCmd().equals("77")) {
+            if (cmd.equals("61") || cmd.equals("77")) {
                 if (group.getSsidUpdatedAt() != null &&
                    (group.getSsidUpdatedAt().isAfter(sensorLogCreatedTime) ||
                     group.getSsidUpdatedAt().isEqual(sensorLogCreatedTime))) {
@@ -511,19 +506,13 @@ public class SensorLogSchedulerService {
             return sensorRepository.saveAndFlush(sensor);
         } else {
             Sensor sensor = existingSensorOpt.get();
-            // Only update if groupPositionNumber or coordinates or group changed
+            // Only update if groupPositionNumber or group changed — 좌표는 관리자가 관리하므로 로그로 덮어쓰지 않음
             boolean needsUpdate = false;
             Long newGroupPositionNumber = (long) parsedSensorLog.getGroupPositionNumber();
-            Double newLatitude = Double.parseDouble(!sensorLogLatitudeAndLongitudeAsString.isEmpty() ? sensorLogLatitudeAndLongitudeAsString.get(0) : "0");
-            Double newLongitude = Double.parseDouble(!sensorLogLatitudeAndLongitudeAsString.isEmpty() ? sensorLogLatitudeAndLongitudeAsString.get(1) : "0");
             if (!Objects.equals(sensor.getGroupPositionNumber(), newGroupPositionNumber)
-                || !Objects.equals(sensor.getLatitude(), newLatitude)
-                || !Objects.equals(sensor.getLongitude(), newLongitude)
                 || !Objects.equals(sensor.getSensorGroup(), sensorGroup)
             ) {
                 sensor.setGroupPositionNumber(newGroupPositionNumber);
-                sensor.setLatitude(newLatitude);
-                sensor.setLongitude(newLongitude);
                 sensor.setSensorGroup(sensorGroup);
                 sensor.setLastlyModifiedWith(sensorLogContentInstance);
                 sensor.setUpdatedAt(LocalDateTime.now());
@@ -538,8 +527,8 @@ public class SensorLogSchedulerService {
     }
 
     @Transactional
-    protected void updateSensor(Sensor sensor, ParsedSensorLogDto parsedSensorLog, List<String> sensorLogLatitudeAndLongitudeAsString, String sensorLogContentInstance) {
-        // Sensor 생성
+    protected void updateSensor(Sensor sensor, ParsedSensorLogDto parsedSensorLog, String sensorLogContentInstance) {
+        // Sensor 생성 — 좌표는 로그(gwl=수신 게이트웨이 위치)가 아니라 기존 값을 보존 (관리자가 옮긴 핀이 배치마다 이동하던 버그)
         Sensor updatedSensor = Sensor.builder()
                 .id(sensor.getId())
                 .sensorGroup(sensor.getSensorGroup())
@@ -570,8 +559,8 @@ public class SensorLogSchedulerService {
                 .maleVolume((long) parsedSensorLog.getVolumeSettings().get("Male Volume"))
                 .minuetVolume((long) parsedSensorLog.getVolumeSettings().get("Minuet Volume"))
                 .systemVolume((long) parsedSensorLog.getVolumeSettings().get("System Volume"))
-                .latitude(Double.parseDouble(!sensorLogLatitudeAndLongitudeAsString.isEmpty() ? sensorLogLatitudeAndLongitudeAsString.get(0) : "0"))
-                .longitude(Double.parseDouble(!sensorLogLatitudeAndLongitudeAsString.isEmpty() ? sensorLogLatitudeAndLongitudeAsString.get(1) : "0"))
+                .latitude(sensor.getLatitude())
+                .longitude(sensor.getLongitude())
                 .lastlyModifiedWith(sensorLogContentInstance)
                 .serverTime(decodeServerTime(parsedSensorLog.getServerTime()))
                 .updatedAt(LocalDateTime.now())
@@ -676,23 +665,21 @@ public class SensorLogSchedulerService {
 
     public void archiveLogsBySensorDeviceNumber() {
         LocalDateTime cutoff = LocalDateTime.now().minusHours(2);
-        List<SensorLog> logs = fetchLogsOlderThanCutoff(cutoff);
+        // 전체 로그를 한 번에 올리면 512Mi OOM — 기기 단위로 나눠 조회·업로드·삭제 (피크 메모리 = 최대 단일 기기 로그)
+        List<String> deviceNumbers = sensorLogRepository.findDeviceNumbersWithLogsOlderThan(cutoff);
 
-        if (logs.isEmpty()) {
+        if (deviceNumbers.isEmpty()) {
             log.info("보관할 로그 없음.");
             return;
         }
 
-        Map<String, Map<LocalDate, List<SensorLog>>> grouped = logs.stream()
-            .filter(log -> log.getSensorDeviceNumber() != null)
-            .collect(Collectors.groupingBy(
-                SensorLog::getSensorDeviceNumber,
-                Collectors.groupingBy(log -> log.getCreatedAt().toLocalDate())
-            ));
+        for (String deviceNumber : deviceNumbers) {
+            List<SensorLog> deviceLogs = fetchDeviceLogsOlderThanCutoff(deviceNumber, cutoff);
 
-        for (Map.Entry<String, Map<LocalDate, List<SensorLog>>> deviceEntry : grouped.entrySet()) {
-            String deviceNumber = deviceEntry.getKey();
-            for (Map.Entry<LocalDate, List<SensorLog>> dateEntry : deviceEntry.getValue().entrySet()) {
+            Map<LocalDate, List<SensorLog>> byDate = deviceLogs.stream()
+                .collect(Collectors.groupingBy(log -> log.getCreatedAt().toLocalDate()));
+
+            for (Map.Entry<LocalDate, List<SensorLog>> dateEntry : byDate.entrySet()) {
                 LocalDate date = dateEntry.getKey();
                 List<SensorLog> dateLogs = dateEntry.getValue();
                 String filename = String.format("%s_%s.csv",
@@ -736,11 +723,11 @@ public class SensorLogSchedulerService {
     }
 
     /**
-     * 오래된 로그를 트랜잭션(readOnly)으로 안전하게 조회
+     * 오래된 로그를 기기 단위로 트랜잭션(readOnly) 조회
      */
     @Transactional(readOnly = true)
-    public List<SensorLog> fetchLogsOlderThanCutoff(LocalDateTime cutoff) {
-        return sensorLogRepository.findLogsOlderThan(cutoff);
+    public List<SensorLog> fetchDeviceLogsOlderThanCutoff(String deviceNumber, LocalDateTime cutoff) {
+        return sensorLogRepository.findLogsOlderThanByDevice(deviceNumber, cutoff);
     }
 
     /**
@@ -815,7 +802,7 @@ public class SensorLogSchedulerService {
             if (optLog.isPresent()) {
                 SensorLog logs = optLog.get();
                 String deviceNumber = logs.getSensorDeviceNumber();
-                if (deviceNumber != null && !deviceNumber.isBlank()) {
+                if (deviceNumber != null && !deviceNumber.isBlank() && !deviceNumber.matches("0+")) {
                     Optional<Sensor> sensorOpt = sensorRepository.findByDeviceNumber(deviceNumber);
                     if (sensorOpt.isPresent()) {
                         Sensor sensor = sensorOpt.get();

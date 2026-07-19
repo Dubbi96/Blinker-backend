@@ -34,8 +34,11 @@ public interface SensorLogRepository extends JpaRepository<SensorLog, Long> {
     @Query("SELECT sl.eventCode FROM SensorLog sl")
     List<String> findAllEventCodes();
 
-    @Query("SELECT s FROM SensorLog s WHERE s.createdAt < :cutoff")
-    List<SensorLog> findLogsOlderThan(@Param("cutoff") LocalDateTime cutoff);
+    @Query("SELECT DISTINCT sl.sensorDeviceNumber FROM SensorLog sl WHERE sl.createdAt < :cutoff AND sl.sensorDeviceNumber IS NOT NULL")
+    List<String> findDeviceNumbersWithLogsOlderThan(@Param("cutoff") LocalDateTime cutoff);
+
+    @Query("SELECT sl FROM SensorLog sl WHERE sl.sensorDeviceNumber = :deviceNumber AND sl.createdAt < :cutoff")
+    List<SensorLog> findLogsOlderThanByDevice(@Param("deviceNumber") String deviceNumber, @Param("cutoff") LocalDateTime cutoff);
 
     /**
      * 특정 SensorGroup의 가장 마지막 저장 시간 반환 (null 방지용 Optional)
