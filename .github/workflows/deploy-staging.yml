@@ -76,6 +76,14 @@ jobs:
           --add-cloudsql-instances=${{ vars.STAGING_CLOUD_SQL_INSTANCE }} \
           --set-env-vars "SPRING_PROFILES_ACTIVE=staging,CLOUD_SQL_INSTANCE=${{ vars.STAGING_CLOUD_SQL_INSTANCE }},GCS_BUCKET_NAME=${{ vars.STAGING_GCS_BUCKET }},THINGPLUG_URL=http://thingplugpf.sktiot.com:9000,GOOGLE_APPLICATION_CREDENTIALS=/app/blinker-backend-key.json,THINGPLUG_UKEY=${{ secrets.THINGPLUG_UKEY }},JWT_SECRET=${{ secrets.JWT_SECRET_STAGING }},KAKAO_REST_KEY=${{ secrets.KAKAO_REST_KEY_STAGING }},DISCORD_WEBHOOK=${{ secrets.DISCORD_WEBHOOK }},DB_PASSWORD=${{ secrets.DB_PASSWORD_STAGING }}"
 
+    - name: 스테이징 리비전 기동 실패 로그 수집
+      if: failure()
+      run: |
+        gcloud run services logs read blinker-backend1-staging \
+          --project=${{ vars.STAGING_GCP_PROJECT }} \
+          --region=asia-northeast3 \
+          --limit=100 || true
+
     - name: 7️⃣ Authenticate with GCP (운영 계정) — 승격용 이미지 사본 push
       uses: google-github-actions/auth@v1
       with:
