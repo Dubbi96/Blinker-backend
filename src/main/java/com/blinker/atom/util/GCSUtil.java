@@ -54,7 +54,8 @@ public class GCSUtil {
             throw new FileNotFoundException("GCS에 해당 파일이 존재하지 않습니다: " + objectPath);
         }
 
-        return new ByteArrayInputStream(blob.getContent());
+        ReadChannel channel = blob.reader();
+        return Channels.newInputStream(channel);
     }
 
 

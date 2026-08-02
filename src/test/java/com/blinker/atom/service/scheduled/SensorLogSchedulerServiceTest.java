@@ -16,17 +16,29 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
+import java.io.ByteArrayInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -165,6 +177,97 @@ class SensorLogSchedulerServiceTest {
         verify(sensorRepository).save(sensor);
     }
 
+    @Test
+    void 기존_일자_아카이브와_새_로그를_ID_기준으로_병합한다() throws Exception {
+        SensorGroup sensorGroup = group(OWN_GROUP_ID, "9f291efe");
+        LocalDateTime archivedAt = LocalDateTime.now().minusDays(1).withHour(8).withMinute(1).withSecond(0).withNano(0);
+        SensorLog replacement = archivedLog(100L, "new-event", sensorGroup, archivedAt);
+        SensorLog appended = archivedLog(101L, "next-event", sensorGroup, archivedAt.plusMinutes(1));
+        List<SensorLog> newLogs = List.of(replacement, appended);
+        String filename = "a6291efe_" + archivedAt.toLocalDate().format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE) + ".csv";
+        String existing = "id,sensor_group_id,event_code,event_details,sensor_device_number,is_processed,created_at\n"
+                + "100," + OWN_GROUP_ID + ",old-event,\"{}\",a6291efe,true," + archivedAt + "\n";
+
+        when(sensorLogRepository.findDeviceNumbersWithLogsOlderThan(any(LocalDateTime.class)))
+                .thenReturn(List.of("a6291efe"));
+        when(sensorLogRepository.findLogsOlderThanByDevice(eq("a6291efe"), any(LocalDateTime.class)))
+                .thenReturn(newLogs);
+        when(gcsUtil.downloadFileFromGCS("sensor-log-archive/" + filename))
+                .thenReturn(new ByteArrayInputStream(existing.getBytes(StandardCharsets.UTF_8)));
+
+        List<byte[]> uploads = new ArrayList<>();
+        doAnswer(invocation -> {
+            uploads.add(invocation.<java.io.InputStream>getArgument(2).readAllBytes());
+            return "gs://archive/" + filename;
+        }).when(gcsUtil).uploadFileToGCS(eq("sensor-log-archive"), eq(filename), any(), eq(null));
+
+        service.archiveLogsBySensorDeviceNumber();
+
+        ArgumentCaptor<LocalDateTime> cutoffCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+        verify(sensorLogRepository).findDeviceNumbersWithLogsOlderThan(cutoffCaptor.capture());
+        assertEquals(LocalDate.now().atStartOfDay(), cutoffCaptor.getValue());
+        String uploaded = new String(uploads.get(0), StandardCharsets.UTF_8);
+        assertEquals(1L, uploaded.lines().filter(line -> line.startsWith("100,")).count());
+        assertEquals(1L, uploaded.lines().filter(line -> line.startsWith("101,")).count());
+        assertTrue(uploaded.contains("new-event"));
+        assertFalse(uploaded.contains("old-event"));
+        verify(sensorLogRepository).deleteAll(newLogs);
+    }
+
+    @Test
+    void 아카이브_업로드_재시도는_항상_처음부터_읽는_새_스트림을_사용한다() throws Exception {
+        SensorGroup sensorGroup = group(OWN_GROUP_ID, "9f291efe");
+        LocalDateTime archivedAt = LocalDateTime.now().minusDays(1).withHour(8).withMinute(1).withSecond(0).withNano(0);
+        SensorLog sensorLog = archivedLog(102L, "retry-event", sensorGroup, archivedAt);
+        String filename = "a6291efe_" + archivedAt.toLocalDate().format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE) + ".csv";
+
+        when(sensorLogRepository.findDeviceNumbersWithLogsOlderThan(any(LocalDateTime.class)))
+                .thenReturn(List.of("a6291efe"));
+        when(sensorLogRepository.findLogsOlderThanByDevice(eq("a6291efe"), any(LocalDateTime.class)))
+                .thenReturn(List.of(sensorLog));
+        when(gcsUtil.downloadFileFromGCS("sensor-log-archive/" + filename))
+                .thenThrow(new FileNotFoundException(filename));
+
+        List<byte[]> attempts = new ArrayList<>();
+        doAnswer(invocation -> {
+            attempts.add(invocation.<java.io.InputStream>getArgument(2).readAllBytes());
+            if (attempts.size() == 1) {
+                throw new IOException("일시 업로드 실패");
+            }
+            return "gs://archive/" + filename;
+        }).when(gcsUtil).uploadFileToGCS(eq("sensor-log-archive"), eq(filename), any(), eq(null));
+
+        service.archiveLogsBySensorDeviceNumber();
+
+        assertEquals(2, attempts.size());
+        assertArrayEquals(attempts.get(0), attempts.get(1));
+        verify(sensorLogRepository).deleteAll(List.of(sensorLog));
+    }
+
+    @Test
+    void 주소_갱신은_센서를_페이지로_나눠_조회한다() {
+        Sensor first = Sensor.builder().id(1L).longitude(0.0).latitude(0.0).build();
+        Sensor second = Sensor.builder().id(2L).longitude(0.0).latitude(0.0).build();
+        when(sensorRepository.findAll(any(Pageable.class)))
+                .thenReturn(
+                        new PageImpl<>(List.of(first), PageRequest.of(0, 100), 101),
+                        new PageImpl<>(List.of(second), PageRequest.of(1, 100), 101));
+
+        service.updateSensorAddress();
+
+        verify(sensorRepository, times(2)).findAll(any(Pageable.class));
+        verify(sensorRepository, never()).save(any(Sensor.class));
+    }
+
+    @Test
+    void 주소가_같으면_DB_갱신을_생략한다() {
+        Sensor sensor = Sensor.builder().id(1L).address("충남 아산시").build();
+
+        service.updateSensorAddressInDB(sensor, "충남 아산시");
+
+        verify(sensorRepository, never()).save(any(Sensor.class));
+    }
+
     private SensorGroup group(String id, String groupKey) {
         return SensorGroup.builder().id(id).groupKey(groupKey).build();
     }
@@ -180,6 +283,18 @@ class SensorLogSchedulerServiceTest {
                 .sensorDeviceNumber(payload.substring(2, 10))
                 .isProcessed(false)
                 .createdAt(LocalDateTime.of(2026, 8, 2, 8, 1))
+                .build();
+    }
+
+    private SensorLog archivedLog(Long id, String eventCode, SensorGroup sensorGroup, LocalDateTime createdAt) {
+        return SensorLog.builder()
+                .id(id)
+                .sensorGroup(sensorGroup)
+                .eventCode(eventCode)
+                .eventDetails("{\"con\":\"archive\"}")
+                .sensorDeviceNumber("a6291efe")
+                .isProcessed(true)
+                .createdAt(createdAt)
                 .build();
     }
 }

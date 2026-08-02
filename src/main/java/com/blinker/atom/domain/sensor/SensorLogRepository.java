@@ -8,8 +8,10 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Repository
 public interface SensorLogRepository extends JpaRepository<SensorLog, Long> {
@@ -31,9 +33,6 @@ public interface SensorLogRepository extends JpaRepository<SensorLog, Long> {
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
 
-    @Query("SELECT sl.eventCode FROM SensorLog sl")
-    List<String> findAllEventCodes();
-
     @Query("SELECT DISTINCT sl.sensorDeviceNumber FROM SensorLog sl WHERE sl.createdAt < :cutoff AND sl.sensorDeviceNumber IS NOT NULL")
     List<String> findDeviceNumbersWithLogsOlderThan(@Param("cutoff") LocalDateTime cutoff);
 
@@ -46,11 +45,14 @@ public interface SensorLogRepository extends JpaRepository<SensorLog, Long> {
     @Query("SELECT MAX(sl.createdAt) FROM SensorLog sl WHERE sl.sensorGroup.id = :sensorGroupId")
     Optional<LocalDateTime> findMaxCreatedAtBySensorGroupId(@Param("sensorGroupId") String sensorGroupId);
 
-    /**
-     * 특정 SensorGroup에 저장된 모든 eventCode 조회
-     */
-    @Query("SELECT sl.eventCode FROM SensorLog sl WHERE sl.sensorGroup.id = :sensorGroupId")
-    List<String> findAllEventCodesBySensorGroupId(@Param("sensorGroupId") String sensorGroupId);
+    @Query("""
+        SELECT sl.eventCode FROM SensorLog sl
+        WHERE sl.sensorGroup.id = :sensorGroupId
+          AND sl.eventCode IN :eventCodes
+    """)
+    Set<String> findExistingEventCodesBySensorGroupId(
+            @Param("sensorGroupId") String sensorGroupId,
+            @Param("eventCodes") Collection<String> eventCodes);
 
     /**
      * 특정 SensorGroup 내 처리되지 않은 로그를 최근 24시간 기준으로 조회

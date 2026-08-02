@@ -17,6 +17,9 @@ import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -24,9 +27,13 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpClientErrorException;
 
+import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -43,6 +50,9 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class SensorLogSchedulerService {
+
+    private static final int SENSOR_ADDRESS_PAGE_SIZE = 100;
+    private static final int SENSOR_LOG_WORKER_COUNT = 2;
 
     // 동기화 락 객체 추가
     private static final Object sensorLogLock = new Object();
@@ -164,9 +174,6 @@ public class SensorLogSchedulerService {
         synchronized (sensorLogLock) {
             log.info("🔹 Sensor Log 스케줄러 실행...");
 
-            // 중복 이벤트 코드 목록은 전체 공통으로 사용됨
-            Set<String> existingEventCodes = Collections.synchronizedSet(new HashSet<>(sensorLogRepository.findAllEventCodes()));
-
             // 모든 SensorGroup 조회
             List<SensorGroup> sensorGroups = sensorGroupRepository.findAll();
 
@@ -193,6 +200,11 @@ public class SensorLogSchedulerService {
 
                     // XML 파싱하여 contentInstance 리스트 추출
                     List<String> eventCodes = extractContentInstanceUri(response);
+                    if (eventCodes.isEmpty()) {
+                        return;
+                    }
+                    Set<String> existingEventCodes = sensorLogRepository
+                            .findExistingEventCodesBySensorGroupId(sensorGroupId, eventCodes);
                     List<String> newEventCodes = eventCodes.stream()
                             .filter(code -> {
                                 if (existingEventCodes.contains(code)) {
@@ -654,18 +666,21 @@ public class SensorLogSchedulerService {
     }
 
     /**모든 센서의 위치 정보를 변환하여 string 값으로 추가*/
-    @Transactional
     public void updateSensorAddress(){
         log.info("Sensor 위치 정보 조회 스케줄러 실행...");
 
-        // 모든 센서 조회
-        List<Sensor> sensors = sensorRepository.findAll();
-        for (Sensor sensor : sensors) {
-            fetchAndLogLocation(sensor);
-        }
+        // 외부 Kakao API 호출 전체를 하나의 DB 트랜잭션으로 묶지 않는다.
+        // 장시간 트랜잭션이 커넥션과 영속성 컨텍스트를 계속 점유하면 다른 배치와 겹칠 때 메모리 사용량이 급증한다.
+        int pageNumber = 0;
+        Page<Sensor> sensorPage;
+        do {
+            sensorPage = sensorRepository.findAll(PageRequest.of(
+                    pageNumber, SENSOR_ADDRESS_PAGE_SIZE, Sort.by(Sort.Direction.ASC, "id")));
+            sensorPage.forEach(this::fetchAndLogLocation);
+            pageNumber++;
+        } while (sensorPage.hasNext());
     }
 
-    @Transactional
     protected void fetchAndLogLocation(Sensor sensor) {
         double longitude = sensor.getLongitude();
         double latitude = sensor.getLatitude();
@@ -688,9 +703,12 @@ public class SensorLogSchedulerService {
         updateSensorAddressInDB(sensor, address);
     }
 
-    @Transactional
     protected void updateSensorAddressInDB(Sensor sensor, String address) {
+        if (Objects.equals(sensor.getAddress(), address)) {
+            return;
+        }
         sensor.updateAddress(address);
+        // Spring Data save가 센서별 짧은 트랜잭션을 열어 갱신한다.
         sensorRepository.save(sensor);
     }
 
@@ -715,7 +733,9 @@ public class SensorLogSchedulerService {
     }
 
     public void archiveLogsBySensorDeviceNumber() {
-        LocalDateTime cutoff = LocalDateTime.now().minusHours(2);
+        // SensorService는 오늘 로그를 DB에서 조회하므로 완료된 날짜의 로그만 이관해야 한다.
+        // 낮에 강제 실행하더라도 당일 로그가 DB에서 사라지지 않도록 오늘 00:00을 경계로 사용한다.
+        LocalDateTime cutoff = LocalDate.now().atStartOfDay();
         // 전체 로그를 한 번에 올리면 512Mi OOM — 기기 단위로 나눠 조회·업로드·삭제 (피크 메모리 = 최대 단일 기기 로그)
         List<String> deviceNumbers = sensorLogRepository.findDeviceNumbersWithLogsOlderThan(cutoff);
 
@@ -736,12 +756,18 @@ public class SensorLogSchedulerService {
                 String filename = String.format("%s_%s.csv",
                         deviceNumber,
                         date.format(DateTimeFormatter.ofPattern("yyyyMMdd")));
-                StringBuilder sb = getStringBuilder(dateLogs);
+                byte[] csvContent;
+                try {
+                    csvContent = buildMergedArchive(filename, dateLogs);
+                } catch (IOException e) {
+                    log.error("❌ 기존 아카이브 병합 실패 - {} ({}): {}", deviceNumber, date, e.getMessage(), e);
+                    continue;
+                }
 
-                log.debug("업로드 대상 파일 [{}] 크기: {} bytes", filename, sb.length());
+                log.debug("업로드 대상 파일 [{}] 크기: {} bytes", filename, csvContent.length);
 
-                try (InputStream inputStream = new ByteArrayInputStream(sb.toString().getBytes())) {
-                    uploadWithRetry("sensor-log-archive", filename, inputStream);
+                try {
+                    uploadWithRetry("sensor-log-archive", filename, csvContent);
                     deleteSensorLogs(dateLogs);  // 삭제는 별도 트랜잭션에서 처리
                 } catch (Exception e) {
                     log.error("❌ 업로드 실패 - {} ({}): {}", deviceNumber, date, e.getMessage(), e);
@@ -750,12 +776,13 @@ public class SensorLogSchedulerService {
         }
     }
 
-    private void uploadWithRetry(String bucket, String filename, InputStream inputStream) throws IOException {
+    private void uploadWithRetry(String bucket, String filename, byte[] csvContent) throws IOException {
         int maxRetries = 3;
         int retryDelayMillis = 1000;
 
         for (int i = 0; i < maxRetries; i++) {
-            try {
+            // 실패한 업로드가 스트림을 소비했더라도 매 시도마다 처음부터 다시 읽도록 새 스트림을 만든다.
+            try (InputStream inputStream = new ByteArrayInputStream(csvContent)) {
                 gcsUtil.uploadFileToGCS(bucket, filename, inputStream, null);
                 return; // 성공 시 종료
             } catch (IOException e) {
@@ -789,21 +816,40 @@ public class SensorLogSchedulerService {
         sensorLogRepository.deleteAll(logs);
     }
 
-    private StringBuilder getStringBuilder(List<SensorLog> logs) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("id,sensor_group_id,event_code,event_details,sensor_device_number,is_processed,created_at\n");
+    private byte[] buildMergedArchive(String filename, List<SensorLog> newLogs) throws IOException {
+        String header = "id,sensor_group_id,event_code,event_details,sensor_device_number,is_processed,created_at";
+        Map<String, String> rowsByLogId = new LinkedHashMap<>();
 
-        for (SensorLog log : logs) {
-            sb.append(log.getId()).append(",");
-            sb.append(safeString(log.getSensorGroup().getId())).append(",");
-            sb.append(safeString(log.getEventCode())).append(",");
-            sb.append("\"").append(log.getEventDetails().replace("\"", "\"\"")).append("\",");
-            sb.append(log.getSensorDeviceNumber()).append(",");
-            sb.append("true").append(",");
-            sb.append(log.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)).append("\n");
+        try (InputStream existing = gcsUtil.downloadFileFromGCS("sensor-log-archive/" + filename);
+             BufferedReader reader = new BufferedReader(new InputStreamReader(existing, StandardCharsets.UTF_8))) {
+            reader.readLine(); // header
+            String line;
+            while ((line = reader.readLine()) != null) {
+                int comma = line.indexOf(',');
+                if (comma > 0) {
+                    rowsByLogId.put(line.substring(0, comma).trim(), line);
+                }
+            }
+        } catch (FileNotFoundException ignored) {
+            // 최초 아카이브 파일은 병합할 대상이 없다.
         }
 
-        return sb;
+        for (SensorLog sensorLog : newLogs) {
+            rowsByLogId.put(String.valueOf(sensorLog.getId()), toArchiveCsvRow(sensorLog));
+        }
+
+        StringBuilder merged = new StringBuilder(header).append('\n');
+        rowsByLogId.values().forEach(row -> merged.append(row).append('\n'));
+        return merged.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    private String toArchiveCsvRow(SensorLog sensorLog) {
+        return sensorLog.getId() + ","
+                + safeString(sensorLog.getSensorGroup().getId()) + ","
+                + safeString(sensorLog.getEventCode()) + ",\""
+                + safeString(sensorLog.getEventDetails()).replace("\"", "\"\"") + "\","
+                + safeString(sensorLog.getSensorDeviceNumber()) + ",true,"
+                + sensorLog.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
     }
 
     private String safeString(Object value) {
@@ -821,8 +867,6 @@ public class SensorLogSchedulerService {
             .findMaxCreatedAtBySensorGroupId(sensorGroupId)
             .orElse(LocalDateTime.now().minusHours(24));
 
-        Set<String> existingEventCodes = new HashSet<>(sensorLogRepository.findAllEventCodesBySensorGroupId(sensorGroupId));
-
         String url = String.format("%s/%s/v1_0/remoteCSE-%s/container-LoRa?fu=1&ty=4", baseUrl, appEui, sensorGroupId);
         String response = HttpClientUtil.get(url, new ThingPlugHeaderProvider(origin, uKey, requestId));
 
@@ -832,6 +876,12 @@ public class SensorLogSchedulerService {
         }
 
         List<String> eventCodes = extractContentInstanceUri(response);
+        if (eventCodes.isEmpty()) {
+            log.info("새로운 로그가 없습니다.");
+            return;
+        }
+        Set<String> existingEventCodes = sensorLogRepository
+                .findExistingEventCodesBySensorGroupId(sensorGroupId, eventCodes);
         List<String> newEventCodes = eventCodes.stream()
             .filter(code -> !existingEventCodes.contains(code))
             .toList();
@@ -926,7 +976,8 @@ public class SensorLogSchedulerService {
     public void fastAndSafeFetchAllLogs() {
         List<SensorGroup> allGroups = sensorGroupRepository.findAll();
 
-        ExecutorService executor = Executors.newFixedThreadPool(5); // 병렬 5개 제한
+        // 운영 인스턴스의 메모리 범위 안에서 외부 응답 파싱과 DB 처리가 겹치도록 병렬 수를 제한한다.
+        ExecutorService executor = Executors.newFixedThreadPool(SENSOR_LOG_WORKER_COUNT);
         List<Future<?>> futures = new ArrayList<>();
 
         for (SensorGroup group : allGroups) {
