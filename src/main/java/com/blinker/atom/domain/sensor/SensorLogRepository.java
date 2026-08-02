@@ -84,4 +84,15 @@ public interface SensorLogRepository extends JpaRepository<SensorLog, Long> {
     List<SensorLog> findAllBySensorGroupAndIsProcessedFalse(SensorGroup sensorGroup);
 
     Optional<SensorLog> findByEventCode(String eventCode);
+
+    /** 지정 시각 이후 해당 기기가 SensorGroup에 남긴 로그 수. */
+    @Query("""
+        SELECT COUNT(sl) FROM SensorLog sl
+        WHERE sl.sensorDeviceNumber = :deviceNumber
+          AND sl.sensorGroup.id = :sensorGroupId
+          AND sl.createdAt >= :cutoff
+    """)
+    long countRecentByDeviceNumberAndSensorGroupId(@Param("deviceNumber") String deviceNumber,
+                                                   @Param("sensorGroupId") String sensorGroupId,
+                                                   @Param("cutoff") LocalDateTime cutoff);
 }

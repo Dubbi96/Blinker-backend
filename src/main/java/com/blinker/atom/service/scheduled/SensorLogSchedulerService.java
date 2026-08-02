@@ -90,6 +90,18 @@ public class SensorLogSchedulerService {
     @Transactional
     protected void rollbackSensors(Sensor sensor) {
         ParsedSensorLogDto parsedSensorLog = ParsingUtil.parseMessage(sensor.getLastlyModifiedWith());
+        if (!ParsingUtil.isValidSensorReport(parsedSensorLog)) {
+            log.warn("⚠ 손상된 원문으로 센서 '{}' 롤백을 수행하지 않음", sensor.getDeviceNumber());
+            return;
+        }
+
+        String assignedGroupNumber = sensor.getSensorGroup().getGroupKey();
+        if (assignedGroupNumber != null && !assignedGroupNumber.isBlank()
+                && !assignedGroupNumber.equalsIgnoreCase(parsedSensorLog.getGroupNumber())) {
+            log.warn("⚠ 이웃 그룹 원문으로 센서 '{}' 번호가 덮어쓰여지지 않도록 롤백 스킵", sensor.getDeviceNumber());
+            return;
+        }
+
         Sensor updatedSensor = Sensor.builder()
                 .id(sensor.getId())
                 .sensorGroup(sensor.getSensorGroup())
@@ -365,6 +377,13 @@ public class SensorLogSchedulerService {
             String sensorLogContentInstance = jsonNode.get("con").asText();
             ParsedSensorLogDto parsedSensorLog = ParsingUtil.parseMessage(sensorLogContentInstance);
 
+            if (parsedSensorLog.isParsingError()) {
+                log.warn("⚠ 손상된 센서 로그. eventCode: {}, 사유: {}",
+                        eventCode, parsedSensorLog.getErrorMessage());
+                markAsProcessed(logEntry);
+                return;
+            }
+
             // 추가 로그
             log.debug("🔍 처리 중인 센서 디바이스 번호: {}", parsedSensorLog.getDeviceNumber());
 
@@ -392,10 +411,19 @@ public class SensorLogSchedulerService {
                     }
                 }
 
-                // 개선: deviceNumber가 null/blank/전부 0(비정상 로그)이면 처리하지 않음 — 00000000 유령 센서 생성 방지
+                // 개선: deviceNumber가 null/blank/전부 0 또는 전부 F(손상 프레임)이면 처리하지 않음 — 유령 센서 생성 방지
                 String deviceNumber = parsedSensorLog.getDeviceNumber();
-                if (deviceNumber == null || deviceNumber.trim().isEmpty() || deviceNumber.matches("0+")) {
+                if (!ParsingUtil.hasValidDeviceNumber(deviceNumber)) {
                     log.warn("⚠ 디바이스 넘버가 유효하지 않음({}). 로그 스킵", deviceNumber);
+                    markAsProcessed(logEntry);
+                    return;
+                }
+
+                // 길이(102자)만 맞고 내용이 깨진 프레임 차단 — 2026-06-01 09:37~09:39에 신호기수 208·묶음내번호 194~202로
+                // 들어온 프레임이 슬레이브 100번대 유령 센서를 만들었음
+                if (!ParsingUtil.hasValidBundleInfo(parsedSensorLog)) {
+                    log.warn("⚠ 묶음 정보가 유효하지 않음(신호기수={}, 묶음내번호={}). 로그 스킵: {}",
+                            parsedSensorLog.getSignalsInGroup(), parsedSensorLog.getGroupPositionNumber(), eventCode);
                     markAsProcessed(logEntry);
                     return;
                 }
@@ -404,7 +432,11 @@ public class SensorLogSchedulerService {
                 String deviceNumberCheck = parsedSensorLog.getDeviceNumber();
                 Sensor existingSensor = sensorRepository.findByDeviceNumber(deviceNumberCheck).orElse(null);
                 if (existingSensor != null) {
-                    updateSensor(existingSensor, parsedSensorLog, sensorLogContentInstance);
+                    // 같은 기기가 이웃 마스터의 컨테이너에도 보고되고, 컨테이너마다 묶음내번호가 다르다.
+                    // 자기 그룹 로그일 때만 번호를 갱신해야 남의 그룹 번호가 새어들어와 핀 번호가 중복되지 않는다.
+                    boolean ownGroupLog = existingSensor.getSensorGroup().getId()
+                            .equals(logEntry.getSensorGroup().getId());
+                    updateSensor(existingSensor, parsedSensorLog, sensorLogContentInstance, ownGroupLog);
                     existingSensor.setUpdatedAt();
                     sensorRepository.save(existingSensor);
                     log.info("🆙 센서정보 업데이트 됨 : {} ", existingSensor.getDeviceNumber());
@@ -437,6 +469,21 @@ public class SensorLogSchedulerService {
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException("Json Parsing에 실패하였습니다.",e);
         }
+    }
+
+    /** SensorLog의 eventDetails(JSON)에서 con 페이로드를 꺼냄. 실패 시 null */
+    private String extractLogContent(SensorLog logEntry) {
+        try {
+            JsonNode node = objectMapper.readTree(logEntry.getEventDetails());
+            return node.has("con") ? node.get("con").asText() : null;
+        } catch (JsonProcessingException e) {
+            return null;
+        }
+    }
+
+    private ParsedSensorLogDto parseLogContent(SensorLog logEntry) {
+        String content = extractLogContent(logEntry);
+        return content == null ? null : ParsingUtil.parseMessage(content);
     }
 
     private String trimAfterFirstZero(String input) {
@@ -527,7 +574,7 @@ public class SensorLogSchedulerService {
     }
 
     @Transactional
-    protected void updateSensor(Sensor sensor, ParsedSensorLogDto parsedSensorLog, String sensorLogContentInstance) {
+    protected void updateSensor(Sensor sensor, ParsedSensorLogDto parsedSensorLog, String sensorLogContentInstance, boolean ownGroupLog) {
         // Sensor 생성 — 좌표는 로그(gwl=수신 게이트웨이 위치)가 아니라 기존 값을 보존 (관리자가 옮긴 핀이 배치마다 이동하던 버그)
         Sensor updatedSensor = Sensor.builder()
                 .id(sensor.getId())
@@ -547,7 +594,10 @@ public class SensorLogSchedulerService {
                 .buttonCount((long) parsedSensorLog.getButtonCount())
                 .positionGuideCount((long) parsedSensorLog.getPositionGuideCount())
                 .signalGuideCount((long) parsedSensorLog.getSignalGuideCount())
-                .groupPositionNumber((long) parsedSensorLog.getGroupPositionNumber())
+                // 묶음내번호는 컨테이너 기준 값 — 자기 그룹 로그가 아니면 기존 번호를 유지한다
+                .groupPositionNumber(ownGroupLog
+                        ? (long) parsedSensorLog.getGroupPositionNumber()
+                        : sensor.getGroupPositionNumber())
                 .femaleMute1((long) parsedSensorLog.getSilentSettings().get("Female Mute 1"))
                 .femaleMute2((long) parsedSensorLog.getSilentSettings().get("Female Mute 2"))
                 .maleMute1((long) parsedSensorLog.getSilentSettings().get("Male Mute 1"))
@@ -561,7 +611,8 @@ public class SensorLogSchedulerService {
                 .systemVolume((long) parsedSensorLog.getVolumeSettings().get("System Volume"))
                 .latitude(sensor.getLatitude())
                 .longitude(sensor.getLongitude())
-                .lastlyModifiedWith(sensorLogContentInstance)
+                // 롤백 기준 원문도 자기 그룹 로그로만 갱신해야 번호가 다시 오염되지 않는다
+                .lastlyModifiedWith(ownGroupLog ? sensorLogContentInstance : sensor.getLastlyModifiedWith())
                 .serverTime(decodeServerTime(parsedSensorLog.getServerTime()))
                 .updatedAt(LocalDateTime.now())
                 .address(sensor.getAddress())
@@ -795,21 +846,44 @@ public class SensorLogSchedulerService {
         checkRedirectedSensor(sensorGroupId, newEventCodes, group);
     }
 
-    private void checkRedirectedSensor(String sensorGroupId, List<String> newEventCodes, SensorGroup group) {
+    void checkRedirectedSensor(String sensorGroupId, List<String> newEventCodes, SensorGroup group) {
         // 추가: 센서가 다른 그룹에서 이동해온 경우, 기존 센서의 그룹을 업데이트
         for (String eventCode : newEventCodes) {
             Optional<SensorLog> optLog = sensorLogRepository.findByEventCode(eventCode);
             if (optLog.isPresent()) {
                 SensorLog logs = optLog.get();
-                String deviceNumber = logs.getSensorDeviceNumber();
-                if (deviceNumber != null && !deviceNumber.isBlank() && !deviceNumber.matches("0+")) {
+                ParsedSensorLogDto incoming = parseLogContent(logs);
+                if (!ParsingUtil.isValidSensorReport(incoming)) {
+                    log.warn("⚠ 이동 판정에서 손상된 로그 스킵: {}", eventCode);
+                    continue;
+                }
+
+                String deviceNumber = incoming.getDeviceNumber();
+                if (ParsingUtil.hasValidDeviceNumber(deviceNumber)) {
                     Optional<Sensor> sensorOpt = sensorRepository.findByDeviceNumber(deviceNumber);
                     if (sensorOpt.isPresent()) {
                         Sensor sensor = sensorOpt.get();
-                        if (!sensor.getSensorGroup().getId().equals(sensorGroupId)) {
+                        String currentGroupId = sensor.getSensorGroup().getId();
+                        if (!currentGroupId.equals(sensorGroupId)) {
+                            // 한 기기가 이웃 마스터에도 에코로 잡힌다. 현재 그룹에 최근 정상 보고가 하나라도 있으면
+                            // 보고량 비교만으로 그룹을 옮기지 않고, 현재 그룹 보고가 완전히 끊긴 경우에만 이전한다.
+                            LocalDateTime cutoff = LocalDateTime.now().minusHours(24);
+                            long currentGroupReports = sensorLogRepository
+                                    .countRecentByDeviceNumberAndSensorGroupId(deviceNumber, currentGroupId, cutoff);
+                            long candidateGroupReports = sensorLogRepository
+                                    .countRecentByDeviceNumberAndSensorGroupId(deviceNumber, sensorGroupId, cutoff);
+                            if (currentGroupReports > 0 || candidateGroupReports == 0) {
+                                log.debug("↩︎ 센서 '{}' 그룹 이동 무시: '{}' {}건, '{}' {}건",
+                                         deviceNumber, currentGroupId, currentGroupReports,
+                                         sensorGroupId, candidateGroupReports);
+                                continue;
+                            }
                             log.info("🔁 센서 '{}' 가 그룹 '{}' → '{}' 으로 이동됨을 감지하여 그룹을 이전합니다.",
-                                     deviceNumber, sensor.getSensorGroup().getId(), sensorGroupId);
+                                     deviceNumber, currentGroupId, sensorGroupId);
                             sensor.setSensorGroup(group);
+                            // 묶음내번호는 컨테이너 기준 값 — 그룹을 옮기면 그 컨테이너 기준 번호도 같이 가져와야 중복이 안 생긴다
+                            sensor.setGroupPositionNumber((long) incoming.getGroupPositionNumber());
+                            sensor.setLastlyModifiedWith(extractLogContent(logs));
                             sensor.setUpdatedAt();
                             sensorRepository.save(sensor);
                         }

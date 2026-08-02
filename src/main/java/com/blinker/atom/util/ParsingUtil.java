@@ -9,6 +9,38 @@ public class ParsingUtil {
 
     private static final int MESSAGE_LENGTH = 102; // 메시지 전체 길이
 
+    // 프로토콜상 0~255이지만 실제 묶음은 2/4/6/8로만 구성된다(운영 로그 17,814건 실측 최대 8).
+    // 현장에 8대 초과 묶음이 생기면 이 상수만 올리면 된다.
+    private static final int MAX_SIGNALS_IN_GROUP = 8;
+
+    public static boolean hasValidDeviceNumber(String deviceNumber) {
+        return deviceNumber != null
+                && !deviceNumber.isBlank()
+                && !deviceNumber.matches("(?i)0+|f+");
+    }
+
+    /**
+     * 묶음 정보(묶음내 신호기수 / 묶음내 번호)가 실제 장비가 낼 수 있는 범위인지 검사.
+     * 길이만 102자로 맞고 내용이 깨진 LoRa 프레임(신호기수 208, 묶음내번호 194~202 등)을 걸러내기 위한 것.
+     * 묶음번호 0 = 묶음 없음이므로 신호기수 0 / 번호 0은 정상으로 본다.
+     */
+    public static boolean hasValidBundleInfo(ParsedSensorLogDto data) {
+        if (data == null || data.isParsingError()) {
+            return false;
+        }
+        long signals = data.getSignalsInGroup();
+        int position = data.getGroupPositionNumber();
+        return signals >= 0 && signals <= MAX_SIGNALS_IN_GROUP
+                && position >= 0 && position < Math.max(signals, 1);
+    }
+
+    public static boolean isValidSensorReport(ParsedSensorLogDto data) {
+        return data != null
+                && !data.isParsingError()
+                && hasValidDeviceNumber(data.getDeviceNumber())
+                && hasValidBundleInfo(data);
+    }
+
     public static ParsedSensorLogDto parseMessage(String message) {
         ParsedSensorLogDto data = new ParsedSensorLogDto();
         try {

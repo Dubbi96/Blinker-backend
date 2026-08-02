@@ -3,7 +3,7 @@ FROM maven:3.9-eclipse-temurin-17 AS stage1
 WORKDIR /opt/app
 COPY pom.xml .
 COPY ./src ./src
-RUN mvn clean package -DskipTests
+RUN mvn clean package
 
 # Stage 2: Runtime
 FROM eclipse-temurin:17-jdk
