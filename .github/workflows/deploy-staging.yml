@@ -48,6 +48,7 @@ jobs:
         ls -l blinker-backend-key.json
 
     - name: 3️⃣ Build Docker Image (스테이징/운영 레지스트리 공용 — 동일 digest)
+      id: build_image
       run: docker build -t $STAGING_IMAGE_BASE:$IMAGE_TAG -t $PROD_IMAGE_BASE:$IMAGE_TAG .
 
     - name: 4️⃣ Authenticate with GCP (staging 계정)
@@ -85,11 +86,13 @@ jobs:
           --limit=100 || true
 
     - name: 7️⃣ Authenticate with GCP (운영 계정) — 승격용 이미지 사본 push
+      if: ${{ always() && steps.build_image.outcome == 'success' }}
       uses: google-github-actions/auth@v1
       with:
         credentials_json: "${{ secrets.GCP_SA_KEY }}"
 
     - name: 8️⃣ Push Same Image to Prod Artifact Registry (운영 승격 대비, 동일 digest)
+      if: ${{ always() && steps.build_image.outcome == 'success' }}
       run: |
         gcloud auth configure-docker asia-northeast3-docker.pkg.dev --quiet
         docker push $PROD_IMAGE_BASE:$IMAGE_TAG
