@@ -50,6 +50,14 @@ jobs:
           --add-cloudsql-instances=blinker-db:asia-northeast3:blinker-atom-db \
           --set-env-vars "SPRING_PROFILES_ACTIVE=prod,THINGPLUG_URL=http://thingplugpf.sktiot.com:9000,GOOGLE_APPLICATION_CREDENTIALS=/app/blinker-backend-key.json,THINGPLUG_UKEY=${{ secrets.THINGPLUG_UKEY }},JWT_SECRET=${{ secrets.JWT_SECRET }},KAKAO_REST_KEY=${{ secrets.KAKAO_REST_KEY }},DISCORD_WEBHOOK=${{ secrets.DISCORD_WEBHOOK }},DB_PASSWORD=${{ secrets.DB_PASSWORD }}"
 
+    # 한 번이라도 --no-traffic 카나리를 만들면 Cloud Run은 이후 deploy에서도 기존 트래픽 배분을 유지한다.
+    # 워크플로 성공이 실제 운영 승격을 의미하도록 최신 준비 완료 리비전으로 명시적으로 전환한다.
+    - name: 4️⃣ Route Production Traffic to Latest Revision
+      run: |
+        gcloud run services update-traffic blinker-backend1 \
+          --region=asia-northeast3 \
+          --to-latest
+
     - name: 종료 시간 기록
       id: end_time
       run: |
